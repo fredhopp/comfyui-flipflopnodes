@@ -7,14 +7,7 @@
 # @description: Custom FlipFlop nodes for ComfyUI
 #
 
-from nodes.flipflop_time_node import FlipFlopTimeNode
+from .node_mappings import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
+from .categories import NODE_CATEGORIES
 
-NODE_CLASS_MAPPINGS = {
-    "FF Date to String": FlipFlopTimeNode,
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    "FF Date to String": "FF Date to String",
-}
-
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "NODE_CATEGORIES"]
