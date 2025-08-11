@@ -1,5 +1,6 @@
 import datetime
 import re
+from ..categories import structure
 
 class FlipFlop_Text:
     @classmethod
@@ -8,16 +9,16 @@ class FlipFlop_Text:
             "required": {
                 "format_string": ("STRING", {
                     "default": "%yyyy-MM-dd HH:mm:ss%",
-                    "multiline": False,
+                    "multiline": True,
                     "placeholder": "Enter format, e.g. %yyyy-MM-dd HH:mm:ss%"
                 })
             }
         }
 
     RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("time_string",)
-    FUNCTION = "generate_time_string"
-    CATEGORY = "Utility"
+    RETURN_NAMES = ("text",)
+    FUNCTION = "text_multiline"
+    CATEGORY = structure.get('FlipFlop/Text/Text', 'Utility')
 
     def _parse_format(self, fmt):
         token_map = {
@@ -37,7 +38,7 @@ class FlipFlop_Text:
         fmt = re.sub(r'%([^%]+)%', token_replacer, fmt)
         return fmt
 
-    def generate_time_string(self, format_string):
+    def text_multiline(self, format_string):
         now = datetime.datetime.now()
         fmt = self._parse_format(format_string)
         return (now.strftime(fmt),)
