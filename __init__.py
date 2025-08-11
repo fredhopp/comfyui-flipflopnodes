@@ -7,7 +7,6 @@
 # @description: Custom FlipFlop nodes for ComfyUI
 #
 
-from .node_mappings import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
-from .categories import NODE_CATEGORIES
+from .node_mappings import NODE_CLASS_MAPPINGS
 
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "NODE_CATEGORIES"]
+print('-------------------FlipFlopNodes-------------------')

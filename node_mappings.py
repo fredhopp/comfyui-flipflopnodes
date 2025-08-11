@@ -1,12 +1,8 @@
 # node_mappings.py
 # Maps node display names to their classes for registration in ComfyUI
 
-from .nodes.flipflop_time_node import FlipFlopTimeNode
+from .nodes.nodes_text import FlipFlop_Text
 
 NODE_CLASS_MAPPINGS = {
-    "FF Date to String": FlipFlopTimeNode,
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    "FF Date to String": "FF Date to String",
+    "FF Text": FlipFlop_Text,
 }
