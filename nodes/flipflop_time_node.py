@@ -2,13 +2,11 @@ import datetime
 import re
 
 class FlipFlopTimeNode:
-    def __init__(self, format_string="%date:yyMMdd% %time:HHmmss%"):
+    def __init__(self, format_string="%yyyy-MM-dd HH:mm:ss%"):
         self.format_string = format_string
 
     def _parse_format(self, fmt):
-        # Replace custom tokens with strftime equivalents
-        # Example: %date:yyMMdd% -> %y%m%d
-        # Supported tokens: yy, yyyy, MM, dd, HH, mm, ss
+        # Replace custom tokens with strftime equivalents in any %...% block
         token_map = {
             'yy': '%y',
             'yyyy': '%Y',
@@ -18,12 +16,14 @@ class FlipFlopTimeNode:
             'mm': '%M',
             'ss': '%S',
         }
-        def replacer(match):
-            token = match.group(1)
-            return token_map.get(token, match.group(0))
-        # Replace %date:...% and %time:...% blocks
-        fmt = re.sub(r'%date:([yMd]+)%', lambda m: ''.join(token_map.get(t, t) for t in re.findall(r'y{2,4}|M{2}|d{2}', m.group(1))), fmt)
-        fmt = re.sub(r'%time:([Hms]+)%', lambda m: ''.join(token_map.get(t, t) for t in re.findall(r'H{2}|m{2}|s{2}', m.group(1))), fmt)
+        def token_replacer(match):
+            block = match.group(1)
+            # Replace all supported tokens in the block
+            for k, v in token_map.items():
+                block = block.replace(k, v)
+            return block
+        # Replace all %...% blocks
+        fmt = re.sub(r'%([^%]+)%', token_replacer, fmt)
         return fmt
 
     def run(self):
@@ -33,5 +33,5 @@ class FlipFlopTimeNode:
 
 # Example usage:
 if __name__ == "__main__":
-    node = FlipFlopTimeNode("%date:yyyy-MM-dd% %time:HH:mm:ss%")
+    node = FlipFlopTimeNode("%yyyy-MM-dd HH:mm:ss%")
     print(node.run())
