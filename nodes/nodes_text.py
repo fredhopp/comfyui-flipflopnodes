@@ -4,6 +4,9 @@ from ..categories import structure
 
 class FlipFlop_Text:
     @classmethod
+    def IS_CHANGED(cls, *args):
+        return float("NaN")
+    @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
