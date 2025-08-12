@@ -19,6 +19,7 @@ class FlipFlop_Text:
     RETURN_NAMES = ("text",)
     FUNCTION = "text_multiline"
     CATEGORY = structure.get('FlipFlop/Text/Text', 'Utility')
+    OUTPUT_IS_DYNAMIC = True
 
     def _parse_format(self, fmt):
         token_map = {

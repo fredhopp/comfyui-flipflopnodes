@@ -3,8 +3,7 @@
 Outputs the current time as a string, with customizable formatting.
 
 ## Format String
-- Use `%date:yyyy-MM-dd%` for date.
-- Use `%time:HH:mm:ss%` for time.
+- Use `%yyyy-MM-dd HH:mm:ss%` for date and timefyui.
 - Supported tokens: `yy`, `yyyy`, `MM`, `dd`, `HH`, `mm`, `ss`.
 
 ## Output
