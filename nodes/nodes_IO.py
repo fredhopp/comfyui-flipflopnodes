@@ -30,7 +30,7 @@ class FlipFlop_Load_Image_with_Metadata:
     RETURN_NAMES = ("image", "mask", "prompt", "Metadata RAW")
     OUTPUT_NODE = True
     FUNCTION = "execute"
-    CATEGORY = structure.get('FlipFlop/IO/LoadImageWithMetadata', 'Utility')
+    CATEGORY = structure.get('FlipFlop/IO', 'Utility')
 
     def execute(self, filepath):
         if not os.path.isfile(filepath):

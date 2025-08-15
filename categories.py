@@ -1,4 +1,4 @@
 structure = {
-    "FlipFlop/Text/Text": "FlipFlop/Text/Text",
-    "FlipFlop/IO/LoadImageWithMetadata": "FlipFlop/IO/LoadImageWithMetadata",
+    "FlipFlop/Text": "FlipFlop/Text",
+    "FlipFlop/IO": "FlipFlop/IO",
 }
