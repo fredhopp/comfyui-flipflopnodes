@@ -1,0 +1,11 @@
+# comfyui-flipflopnodes requirements
+# Only include packages not already provided by ComfyUI (torch, numpy, pillow, etc. are already included)
+# Add your custom node dependencies below:
+# comfyui-flipflopnodes requirements
+# List all packages used in your custom nodes, even if some are provided by ComfyUI
+# ComfyUI will handle redundancy and skip already installed packages
+
+pillow
+numpy
+torch
+piexif

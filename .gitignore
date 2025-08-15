@@ -1,2 +1,4 @@
+# Ignore the borrowed folder containing reference code
+borrowed/
 __pycache__/
 *.pyc
