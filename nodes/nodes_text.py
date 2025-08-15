@@ -21,7 +21,7 @@ class FlipFlop_Text:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("text",)
     FUNCTION = "text_multiline"
-    CATEGORY = structure.get('FlipFlop/Text/Text', 'Utility')
+    CATEGORY = structure.get('FlipFlop/Text', 'Utility')
     OUTPUT_IS_DYNAMIC = True
 
     def _parse_format(self, fmt):

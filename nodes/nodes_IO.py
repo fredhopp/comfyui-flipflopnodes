@@ -1,16 +1,17 @@
-from PIL.ExifTags import TAGS, GPSTAGS, IFD
-from PIL.PngImagePlugin import PngImageFile
-from PIL.JpegImagePlugin import JpegImageFile
-import json
 # Mostly based on comfyui-crystools:
 # https://github.dev/crystian/comfyui-crystools
 
-from PIL import Image
-from pathlib import Path
 import os
 import torch
+import json
+from pathlib import Path
 import numpy as np
+from PIL import Image
 from PIL import ImageOps
+from PIL.ExifTags import TAGS, GPSTAGS, IFD
+from PIL.PngImagePlugin import PngImageFile
+from PIL.JpegImagePlugin import JpegImageFile
+from ..categories import structure
 
 
 class FlipFlop_Load_Image_with_Metadata:
@@ -29,7 +30,7 @@ class FlipFlop_Load_Image_with_Metadata:
     RETURN_NAMES = ("image", "mask", "prompt", "Metadata RAW")
     OUTPUT_NODE = True
     FUNCTION = "execute"
-    CATEGORY = "Utility"
+    CATEGORY = structure.get('FlipFlop/IO/LoadImageWithMetadata', 'Utility')
 
     def execute(self, filepath):
         if not os.path.isfile(filepath):
@@ -45,71 +46,73 @@ class FlipFlop_Load_Image_with_Metadata:
             mask = np.array(img.getchannel('A')).astype(np.float32) / 255.0
             mask = 1. - torch.from_numpy(mask)
         else:
-            mask = torch.zeros((64, 64), dtype=torch.float32, device="cpu")
+            # Create a zeros mask with the same height and width as the image
+            mask = torch.zeros((img.height, img.width), dtype=torch.float32, device="cpu")
 
         return image, mask.unsqueeze(0), prompt, metadata
-
 def buildMetadata(image_path):
-    img = Image.open(image_path)
     metadata = {}
     prompt = {}
 
-    metadata["fileinfo"] = {
-        "filename": Path(image_path).as_posix(),
-        "resolution": f"{img.width}x{img.height}",
-        "date": str(os.path.getmtime(image_path)),
-        "size": str(os.path.getsize(image_path)),
-    }
+    with Image.open(image_path) as img:
+        metadata["fileinfo"] = {
+            "filename": Path(image_path).as_posix(),
+            "resolution": f"{img.width}x{img.height}",
+            "date": str(os.path.getmtime(image_path)),
+            "size": str(os.path.getsize(image_path)),
+        }
 
-    # only for png files
-    if isinstance(img, PngImageFile):
-        metadataFromImg = img.info
+        if isinstance(img, PngImageFile):
+            metadataFromImg = img.info
 
-        for k, v in metadataFromImg.items():
-            if k == "workflow":
-                try:
-                    metadata["workflow"] = json.loads(metadataFromImg["workflow"])
-                except Exception as e:
-                    pass
-            elif k == "prompt":
-                try:
-                    metadata["prompt"] = json.loads(metadataFromImg["prompt"])
-                    prompt = metadata["prompt"]
-                except Exception as e:
-                    pass
-            else:
-                try:
-                    metadata[str(k)] = json.loads(v)
-                except Exception as e:
+            for k, v in metadataFromImg.items():
+                if k == "workflow":
                     try:
-                        metadata[str(k)] = str(v)
+                        metadata["workflow"] = json.loads(metadataFromImg["workflow"])
                     except Exception as e:
                         pass
-
-    if isinstance(img, JpegImageFile):
-        exif = img.getexif()
-
-        for k, v in exif.items():
-            tag = TAGS.get(k, k)
-            if v is not None:
-                metadata[str(tag)] = str(v)
-
-        for ifd_id in IFD:
-            try:
-                if ifd_id == IFD.GPSInfo:
-                    resolve = GPSTAGS
+                elif k == "prompt":
+                    try:
+                        metadata["prompt"] = json.loads(metadataFromImg["prompt"])
+                        prompt = metadata["prompt"]
+                    except Exception as e:
+                        pass
                 else:
-                    resolve = TAGS
+                    try:
+                        metadata[str(k)] = json.loads(v)
+                    except Exception as e:
+                        try:
+                            metadata[str(k)] = str(v)
+                        except Exception as e:
+                            pass
 
-                ifd = exif.get_ifd(ifd_id)
-                ifd_name = str(ifd_id.name)
-                metadata[ifd_name] = {}
+        if isinstance(img, JpegImageFile):
+            exif = img.getexif()
 
-                for k, v in ifd.items():
-                    tag = resolve.get(k, k)
-                    metadata[ifd_name][str(tag)] = str(v)
+            for k, v in exif.items():
+                tag = TAGS.get(k, k)
+                if v is not None:
+                    metadata[str(tag)] = str(v)
 
-            except KeyError:
-                pass
+            for ifd_id in IFD:
+                try:
+                    if ifd_id == IFD.GPSInfo:
+                        resolve = GPSTAGS
+                    else:
+                        resolve = TAGS
 
+                    ifd = exif.get_ifd(ifd_id)
+                    ifd_name = str(ifd_id.name)
+                    metadata[ifd_name] = {}
+
+                    for k, v in ifd.items():
+                        tag = resolve.get(k, k)
+                        metadata[ifd_name][str(tag)] = str(v)
+
+                except KeyError:
+                    pass
+
+        img_copy = img.copy()
+
+    return img_copy, prompt, metadata
     return img, prompt, metadata
