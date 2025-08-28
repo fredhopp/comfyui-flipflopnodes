@@ -8,6 +8,8 @@ This project contains custom **Flip-Flop** nodes for ComfyUI.
 
 
 ## Available Nodes
-- **FF Date to String**: Outputs the current time as a string, with customizable formatting.
+- **FF Text**: Outputs the current time as a string, with customizable formatting.
+- **FF Load Image with Metadata**: Loads images with their metadata and EXIF data.
+- **FF Group Positioner**: Positions ComfyUI groups under the cursor using keyboard shortcuts.
 
 

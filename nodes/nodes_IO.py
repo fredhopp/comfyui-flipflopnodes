@@ -115,4 +115,3 @@ def buildMetadata(image_path):
         img_copy = img.copy()
 
     return img_copy, prompt, metadata
-    return img, prompt, metadata

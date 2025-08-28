@@ -9,4 +9,9 @@
 
 from .node_mappings import NODE_CLASS_MAPPINGS
 
+# Register web extension directory
+import os
+from pathlib import Path
+WEB_DIRECTORY = str(Path(__file__).parent / "web")
+
 # print('-------------------FlipFlopNodes-------------------')
