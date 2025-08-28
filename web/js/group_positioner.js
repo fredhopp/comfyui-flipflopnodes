@@ -43,6 +43,11 @@ async function loadConfig() {
             if (config.debug_mode) {
                 console.log('[FF Group Positioner] DEBUG: Configuration loaded:', config);
             }
+        } else {
+            console.warn('[FF Group Positioner] Server returned status:', response.status);
+            if (config.debug_mode) {
+                console.log('[FF Group Positioner] DEBUG: Using default config:', config);
+            }
         }
     } catch (error) {
         console.warn('[FF Group Positioner] Could not load group positioner config:', error);
@@ -391,6 +396,14 @@ async function init() {
     
     console.log('[FF Group Positioner] Extension loaded');
     console.log(`[FF Group Positioner] Configuration: ${config.group_name} -> ${config.shortcut_key} (${config.enabled ? 'enabled' : 'disabled'}) ${config.debug_mode ? '[DEBUG ON]' : ''}`);
+    
+    // Add global function for manual testing
+    window.testFlipFlopGroupPositioner = function() {
+        console.log('[FF Group Positioner] Manual test function called');
+        positionGroupUnderCursor(config.group_name);
+    };
+    
+    console.log('[FF Group Positioner] Manual test function available: testFlipFlopGroupPositioner()');
 }
 
 // Wait for ComfyUI to be ready
