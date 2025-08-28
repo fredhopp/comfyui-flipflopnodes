@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FF Group Positioner Test</title>
+</head>
+<body>
+    <h1>FF Group Positioner Test</h1>
+    <p>This is a test page to verify the JavaScript extension is working.</p>
+    <p>Check the browser console for debug messages.</p>
+    
+    <script>
+        console.log('[FF Group Positioner] Test page loaded');
+        
+        // Simulate ComfyUI environment
+        window.app = {
+            graph: {
+                _groups: [
+                    { title: "MOVABLE", pos: [100, 100], size: [200, 150] },
+                    { title: "TestGroup", pos: [300, 300], size: [150, 100] }
+                ],
+                change: function() { console.log('Graph changed'); }
+            },
+            canvas: {
+                mouse: [500, 400]
+            }
+        };
+        
+        console.log('[FF Group Positioner] Simulated ComfyUI environment created');
+    </script>
+    
+    <script type="module" src="js/group_positioner.js"></script>
+</body>
+</html>

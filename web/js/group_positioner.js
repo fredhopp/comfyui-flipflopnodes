@@ -1,6 +1,8 @@
 // Group Positioner Extension for ComfyUI
 // This extension allows positioning a group under the cursor when a shortcut key is pressed
 
+console.log('[FF Group Positioner] Script starting...');
+
 // Wait for ComfyUI to be available
 let app = null;
 
@@ -25,10 +27,10 @@ function getApp() {
 
 // Configuration
 let config = {
-    group_name: "__movable__",
+    group_name: "MOVABLE",
     shortcut_key: "F8",
     enabled: true,
-    debug_mode: false
+    debug_mode: true
 };
 
 // Load configuration from the backend
@@ -36,20 +38,14 @@ async function loadConfig() {
     try {
         const response = await fetch('/flipflop/config/group_positioner.json');
         if (response.ok) {
-            config = await response.json();
+            const newConfig = await response.json();
+            config = { ...config, ...newConfig };
             if (config.debug_mode) {
                 console.log('[FF Group Positioner] DEBUG: Configuration loaded:', config);
             }
         }
     } catch (error) {
         console.warn('[FF Group Positioner] Could not load group positioner config:', error);
-        // Use default config if server endpoint is not available
-        config = {
-            group_name: "__movable__",
-            shortcut_key: "F8",
-            enabled: true,
-            debug_mode: false
-        };
         if (config.debug_mode) {
             console.log('[FF Group Positioner] DEBUG: Using default config:', config);
         }
@@ -181,8 +177,7 @@ function handleKeyDown(event) {
     
     // Fallback: Check if it's a function key and handle different formats
     if (config.shortcut_key.startsWith('F') && keyCode) {
-        // Handle different F8 formats: "F8", "F8", "F8"
-        const functionKeyNumber = config.shortcut_key.substring(1); // Extract "8" from "F8"
+        const functionKeyNumber = config.shortcut_key.substring(1);
         const expectedKeyCode = `F${functionKeyNumber}`;
         
         if (keyCode === expectedKeyCode) {
@@ -247,7 +242,7 @@ function createUIButtons() {
     
     button.addEventListener('click', () => {
         if (config.debug_mode) {
-            console.log('[FF Group Positioner] DEBUG: Test button clicked');
+            console.log('[FF Group Positioner] DEBUG: Position button clicked');
         }
         positionGroupUnderCursor(config.group_name);
     });
@@ -334,73 +329,6 @@ function createUIButtons() {
     }
 }
 
-// Initialize the extension
-async function init() {
-    await loadConfig();
-    
-    // Add keyboard event listener
-    document.addEventListener('keydown', handleKeyDown);
-    
-    // Create UI buttons
-    createUIButtons();
-    
-    // Validate group exists
-    validateGroupExists(config.group_name);
-    
-    // Set up periodic config checking (every 2 seconds)
-    setInterval(async () => {
-        const oldConfig = JSON.stringify(config);
-        await loadConfig();
-        const newConfig = JSON.stringify(config);
-        
-        if (oldConfig !== newConfig) {
-            if (config.debug_mode) {
-                console.log('[FF Group Positioner] DEBUG: Configuration changed!');
-                console.log('[FF Group Positioner] DEBUG: New config:', config);
-            }
-            createUIButtons();
-            validateGroupExists(config.group_name);
-        }
-    }, 2000);
-    
-    // Reload config when graph changes (in case user updates the node)
-    const app = getApp();
-    if (app && app.graph) {
-        const originalChange = app.graph.change;
-        app.graph.change = function() {
-            originalChange.call(this);
-            loadConfig().then(() => {
-                createUIButtons();
-                validateGroupExists(config.group_name);
-            });
-        };
-    }
-    
-    console.log('[FF Group Positioner] Extension loaded');
-    console.log(`[FF Group Positioner] Configuration: ${config.group_name} -> ${config.shortcut_key} (${config.enabled ? 'enabled' : 'disabled'}) ${config.debug_mode ? '[DEBUG ON]' : ''}`);
-}
-
-// Wait for ComfyUI to be ready
-function waitForComfyUI() {
-    const app = getApp();
-    if (app && app.graph) {
-        init();
-    } else {
-        // Wait for app to be available
-        setTimeout(waitForComfyUI, 100);
-    }
-}
-
-// Add a global key listener for debugging (only in debug mode)
-function addDebugKeyListener() {
-    // Always add the listener, but only log when debug mode is on
-    document.addEventListener('keydown', (event) => {
-        if (config.debug_mode) {
-            console.log('[FF Group Positioner] DEBUG: All key events - Key:', event.key, 'Code:', event.code, 'KeyCode:', event.keyCode);
-        }
-    });
-}
-
 // Function to validate group exists
 function validateGroupExists(groupName) {
     const app = getApp();
@@ -431,11 +359,60 @@ function validateGroupExists(groupName) {
     return found;
 }
 
+// Initialize the extension
+async function init() {
+    console.log('[FF Group Positioner] Initializing...');
+    await loadConfig();
+    
+    // Add keyboard event listener
+    document.addEventListener('keydown', handleKeyDown);
+    
+    // Create UI buttons
+    createUIButtons();
+    
+    // Validate group exists
+    validateGroupExists(config.group_name);
+    
+    // Set up periodic config checking (every 2 seconds)
+    setInterval(async () => {
+        const oldConfig = JSON.stringify(config);
+        await loadConfig();
+        const newConfig = JSON.stringify(config);
+        
+        if (oldConfig !== newConfig) {
+            if (config.debug_mode) {
+                console.log('[FF Group Positioner] DEBUG: Configuration changed!');
+                console.log('[FF Group Positioner] DEBUG: New config:', config);
+            }
+            createUIButtons();
+            validateGroupExists(config.group_name);
+        }
+    }, 2000);
+    
+    console.log('[FF Group Positioner] Extension loaded');
+    console.log(`[FF Group Positioner] Configuration: ${config.group_name} -> ${config.shortcut_key} (${config.enabled ? 'enabled' : 'disabled'}) ${config.debug_mode ? '[DEBUG ON]' : ''}`);
+}
+
+// Wait for ComfyUI to be ready
+function waitForComfyUI() {
+    const app = getApp();
+    if (app && app.graph) {
+        console.log('[FF Group Positioner] ComfyUI detected, initializing...');
+        init();
+    } else {
+        console.log('[FF Group Positioner] Waiting for ComfyUI...');
+        setTimeout(waitForComfyUI, 1000);
+    }
+}
+
+// Add a global key listener for debugging
+document.addEventListener('keydown', (event) => {
+    if (config.debug_mode) {
+        console.log('[FF Group Positioner] DEBUG: All key events - Key:', event.key, 'Code:', event.code, 'KeyCode:', event.keyCode);
+    }
+});
+
 // Start waiting for ComfyUI
+console.log('[FF Group Positioner] Starting...');
 waitForComfyUI();
 
-// Add debug key listener
-addDebugKeyListener();
-
-// Log initial load
-console.log('[FF Group Positioner] Extension script loaded');
