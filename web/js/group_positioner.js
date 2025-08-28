@@ -221,8 +221,8 @@ function createUIButtons() {
     button.title = `Press ${config.shortcut_key} or click to position group "${config.group_name}" under cursor`;
     button.style.cssText = `
         position: fixed;
-        top: 10px;
-        right: 10px;
+        top: 120px;
+        right: 20px;
         z-index: 1000;
         padding: 8px 12px;
         background: #4CAF50;
@@ -259,8 +259,8 @@ function createUIButtons() {
     testButton.title = `Test positioning without shortcut (debug mode: ${config.debug_mode ? 'ON' : 'OFF'})`;
     testButton.style.cssText = `
         position: fixed;
-        top: 50px;
-        right: 10px;
+        top: 160px;
+        right: 20px;
         z-index: 1000;
         padding: 8px 12px;
         background: ${config.debug_mode ? '#FF9800' : '#9E9E9E'};
@@ -294,8 +294,8 @@ function createUIButtons() {
     refreshButton.title = 'Refresh configuration and validate group';
     refreshButton.style.cssText = `
         position: fixed;
-        top: 90px;
-        right: 10px;
+        top: 200px;
+        right: 20px;
         z-index: 1000;
         padding: 8px 12px;
         background: #2196F3;
