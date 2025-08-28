@@ -1,5 +1,6 @@
 {
   "group_name": "MyGroup",
   "shortcut_key": "F8",
-  "enabled": true
+  "enabled": true,
+  "debug_mode": false
 }
