@@ -1,0 +1,5 @@
+[33m13a0cae[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Restore FF prefix to node display names in node_mappings.py
+[33m6353962[m Update node display names in node_mappings.py and related changes
+[33mf8a0866[m Update categories and node mappings for new IO node and structure
+[33mbeeee7d[m Add full-featured buildMetadata for rich image metadata extraction
+[33m0137ec4[m Fix IS_CHANGED to accept **kwargs for ComfyUI compatibility

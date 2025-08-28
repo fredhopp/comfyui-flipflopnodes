@@ -1,7 +1,27 @@
 // Group Positioner Extension for ComfyUI
 // This extension allows positioning a group under the cursor when a shortcut key is pressed
 
-import { app } from "../../scripts/app.js";
+// Wait for ComfyUI to be available
+let app = null;
+
+// Function to get the ComfyUI app instance
+function getApp() {
+    if (app) return app;
+    
+    // Try different ways to access the ComfyUI app
+    if (window.app) {
+        app = window.app;
+        return app;
+    }
+    
+    // Look for ComfyUI in the global scope
+    if (window.ComfyApp) {
+        app = window.ComfyApp;
+        return app;
+    }
+    
+    return null;
+}
 
 // Configuration
 let config = {
@@ -19,12 +39,19 @@ async function loadConfig() {
         }
     } catch (error) {
         console.warn('Could not load group positioner config:', error);
+        // Use default config if server endpoint is not available
+        config = {
+            group_name: "MyGroup",
+            shortcut_key: "F8",
+            enabled: true
+        };
     }
 }
 
 // Find a group by name
 function findGroupByName(groupName) {
-    if (!app.graph || !app.graph._groups) return null;
+    const app = getApp();
+    if (!app || !app.graph || !app.graph._groups) return null;
     
     const groups = app.graph._groups;
     for (const group of groups) {
@@ -37,6 +64,12 @@ function findGroupByName(groupName) {
 
 // Position group under cursor
 function positionGroupUnderCursor(groupName) {
+    const app = getApp();
+    if (!app) {
+        console.warn('ComfyUI app not available');
+        return;
+    }
+    
     const group = findGroupByName(groupName);
     if (!group) {
         console.warn(`Group "${groupName}" not found`);
@@ -143,27 +176,31 @@ async function init() {
     createUIButton();
     
     // Reload config when graph changes (in case user updates the node)
-    const originalChange = app.graph.change;
-    app.graph.change = function() {
-        originalChange.call(this);
-        loadConfig().then(() => {
-            createUIButton();
-        });
-    };
+    const app = getApp();
+    if (app && app.graph) {
+        const originalChange = app.graph.change;
+        app.graph.change = function() {
+            originalChange.call(this);
+            loadConfig().then(() => {
+                createUIButton();
+            });
+        };
+    }
     
     console.log('Group Positioner extension loaded');
     console.log(`Configuration: ${config.group_name} -> ${config.shortcut_key} (${config.enabled ? 'enabled' : 'disabled'})`);
 }
 
 // Wait for ComfyUI to be ready
-if (app && app.graph) {
-    init();
-} else {
-    // Wait for app to be available
-    const checkApp = setInterval(() => {
-        if (app && app.graph) {
-            clearInterval(checkApp);
-            init();
-        }
-    }, 100);
+function waitForComfyUI() {
+    const app = getApp();
+    if (app && app.graph) {
+        init();
+    } else {
+        // Wait for app to be available
+        setTimeout(waitForComfyUI, 100);
+    }
 }
+
+// Start waiting for ComfyUI
+waitForComfyUI();
