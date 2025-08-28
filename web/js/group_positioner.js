@@ -209,6 +209,11 @@ function createUIButtons() {
         existingTestButton.remove();
     }
     
+    const existingRefreshButton = document.getElementById('flipflop-group-positioner-refresh-btn');
+    if (existingRefreshButton) {
+        existingRefreshButton.remove();
+    }
+    
     // Create main positioning button
     const button = document.createElement('button');
     button.id = 'flipflop-group-positioner-btn';
@@ -282,8 +287,47 @@ function createUIButtons() {
         positionGroupUnderCursor(config.group_name);
     });
     
+    // Create refresh button (for debugging)
+    const refreshButton = document.createElement('button');
+    refreshButton.id = 'flipflop-group-positioner-refresh-btn';
+    refreshButton.textContent = '🔄 Refresh';
+    refreshButton.title = 'Refresh configuration and validate group';
+    refreshButton.style.cssText = `
+        position: fixed;
+        top: 90px;
+        right: 10px;
+        z-index: 1000;
+        padding: 8px 12px;
+        background: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-family: Arial, sans-serif;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: background-color 0.2s;
+    `;
+    
+    refreshButton.addEventListener('mouseenter', () => {
+        refreshButton.style.background = '#1976D2';
+    });
+    
+    refreshButton.addEventListener('mouseleave', () => {
+        refreshButton.style.background = '#2196F3';
+    });
+    
+    refreshButton.addEventListener('click', async () => {
+        console.log('[FF Group Positioner] Refresh button clicked');
+        await loadConfig();
+        createUIButtons();
+        validateGroupExists(config.group_name);
+        console.log('[FF Group Positioner] Configuration refreshed');
+    });
+    
     document.body.appendChild(button);
     document.body.appendChild(testButton);
+    document.body.appendChild(refreshButton);
     
     if (config.debug_mode) {
         console.log('[FF Group Positioner] DEBUG: UI buttons created');
@@ -300,6 +344,25 @@ async function init() {
     // Create UI buttons
     createUIButtons();
     
+    // Validate group exists
+    validateGroupExists(config.group_name);
+    
+    // Set up periodic config checking (every 2 seconds)
+    setInterval(async () => {
+        const oldConfig = JSON.stringify(config);
+        await loadConfig();
+        const newConfig = JSON.stringify(config);
+        
+        if (oldConfig !== newConfig) {
+            if (config.debug_mode) {
+                console.log('[FF Group Positioner] DEBUG: Configuration changed!');
+                console.log('[FF Group Positioner] DEBUG: New config:', config);
+            }
+            createUIButtons();
+            validateGroupExists(config.group_name);
+        }
+    }, 2000);
+    
     // Reload config when graph changes (in case user updates the node)
     const app = getApp();
     if (app && app.graph) {
@@ -308,6 +371,7 @@ async function init() {
             originalChange.call(this);
             loadConfig().then(() => {
                 createUIButtons();
+                validateGroupExists(config.group_name);
             });
         };
     }
@@ -329,11 +393,42 @@ function waitForComfyUI() {
 
 // Add a global key listener for debugging (only in debug mode)
 function addDebugKeyListener() {
-    if (config.debug_mode) {
-        document.addEventListener('keydown', (event) => {
+    // Always add the listener, but only log when debug mode is on
+    document.addEventListener('keydown', (event) => {
+        if (config.debug_mode) {
             console.log('[FF Group Positioner] DEBUG: All key events - Key:', event.key, 'Code:', event.code, 'KeyCode:', event.keyCode);
-        });
+        }
+    });
+}
+
+// Function to validate group exists
+function validateGroupExists(groupName) {
+    const app = getApp();
+    if (!app || !app.graph || !app.graph._groups) {
+        if (config.debug_mode) {
+            console.log('[FF Group Positioner] DEBUG: Cannot validate group - app or graph not available');
+        }
+        return false;
     }
+    
+    const groups = app.graph._groups;
+    const groupNames = groups.map(g => g.title);
+    
+    if (config.debug_mode) {
+        console.log('[FF Group Positioner] DEBUG: Available groups:', groupNames);
+        console.log('[FF Group Positioner] DEBUG: Looking for group:', groupName);
+    }
+    
+    const found = groupNames.includes(groupName);
+    if (config.debug_mode) {
+        if (found) {
+            console.log('[FF Group Positioner] DEBUG: ✓ Group found:', groupName);
+        } else {
+            console.log('[FF Group Positioner] DEBUG: ✗ Group NOT found:', groupName);
+        }
+    }
+    
+    return found;
 }
 
 // Start waiting for ComfyUI
@@ -341,3 +436,6 @@ waitForComfyUI();
 
 // Add debug key listener
 addDebugKeyListener();
+
+// Log initial load
+console.log('[FF Group Positioner] Extension script loaded');
