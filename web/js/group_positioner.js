@@ -25,7 +25,7 @@ function getApp() {
 
 // Configuration
 let config = {
-    group_name: "MyGroup",
+    group_name: "__movable__",
     shortcut_key: "F8",
     enabled: true,
     debug_mode: false
@@ -45,7 +45,7 @@ async function loadConfig() {
         console.warn('[FF Group Positioner] Could not load group positioner config:', error);
         // Use default config if server endpoint is not available
         config = {
-            group_name: "MyGroup",
+            group_name: "__movable__",
             shortcut_key: "F8",
             enabled: true,
             debug_mode: false
@@ -157,6 +157,7 @@ function handleKeyDown(event) {
     
     // Check if the pressed key matches our shortcut
     let keyPressed = event.key;
+    let keyCode = event.code;
     
     // Handle modifier keys
     if (event.ctrlKey) keyPressed = 'Ctrl+' + keyPressed;
@@ -165,15 +166,33 @@ function handleKeyDown(event) {
     if (event.metaKey) keyPressed = 'Meta+' + keyPressed;
     
     if (config.debug_mode) {
-        console.log('[FF Group Positioner] DEBUG: Key pressed:', keyPressed, 'Expected:', config.shortcut_key);
+        console.log('[FF Group Positioner] DEBUG: Key pressed:', keyPressed, 'Key code:', keyCode, 'Expected:', config.shortcut_key);
     }
     
+    // Check for exact match first
     if (keyPressed === config.shortcut_key) {
         if (config.debug_mode) {
             console.log('[FF Group Positioner] DEBUG: Shortcut matched! Triggering positioning...');
         }
         event.preventDefault();
         positionGroupUnderCursor(config.group_name);
+        return;
+    }
+    
+    // Fallback: Check if it's a function key and handle different formats
+    if (config.shortcut_key.startsWith('F') && keyCode) {
+        // Handle different F8 formats: "F8", "F8", "F8"
+        const functionKeyNumber = config.shortcut_key.substring(1); // Extract "8" from "F8"
+        const expectedKeyCode = `F${functionKeyNumber}`;
+        
+        if (keyCode === expectedKeyCode) {
+            if (config.debug_mode) {
+                console.log('[FF Group Positioner] DEBUG: Function key matched via keyCode! Triggering positioning...');
+            }
+            event.preventDefault();
+            positionGroupUnderCursor(config.group_name);
+            return;
+        }
     }
 }
 
@@ -308,5 +327,17 @@ function waitForComfyUI() {
     }
 }
 
+// Add a global key listener for debugging (only in debug mode)
+function addDebugKeyListener() {
+    if (config.debug_mode) {
+        document.addEventListener('keydown', (event) => {
+            console.log('[FF Group Positioner] DEBUG: All key events - Key:', event.key, 'Code:', event.code, 'KeyCode:', event.keyCode);
+        });
+    }
+}
+
 // Start waiting for ComfyUI
 waitForComfyUI();
+
+// Add debug key listener
+addDebugKeyListener();
