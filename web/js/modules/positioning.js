@@ -165,7 +165,12 @@ export function positionGroupUnderCursor(groupName) {
         const scale = canvas.scale || 1;
         const offset = canvas.offset || [0, 0];
         
-        console.log('[FF Group Positioner] Canvas transform properties:', { scale, offset });
+        console.log('[FF Group Positioner] Canvas transform properties:', { 
+            scale: scale, 
+            offset: offset,
+            offsetX: offset[0],
+            offsetY: offset[1]
+        });
         
         // Convert screen coordinates to graph coordinates
         // Formula: (screen_pos - offset) / scale
@@ -175,6 +180,59 @@ export function positionGroupUnderCursor(groupName) {
         ];
         
         console.log('[FF Group Positioner] Using manual coordinate conversion:', graphPos);
+        console.log('[FF Group Positioner] Conversion details:', {
+            mousePos: mousePos,
+            offset: offset,
+            scale: scale,
+            calculated: graphPos
+        });
+    }
+    
+    // Method 4: Try using canvas transform matrix (more accurate)
+    if (!graphPos || (graphPos[0] === mousePos[0] && graphPos[1] === mousePos[1])) {
+        console.log('[FF Group Positioner] Trying canvas transform matrix method...');
+        
+        // Get canvas element and its transform
+        const canvasElement = canvas.canvas;
+        if (canvasElement) {
+            const rect = canvasElement.getBoundingClientRect();
+            const ctx = canvasElement.getContext('2d');
+            
+            if (ctx) {
+                // Get the current transform matrix
+                const transform = ctx.getTransform();
+                console.log('[FF Group Positioner] Canvas transform matrix:', transform);
+                
+                // Calculate relative position within canvas
+                const relativeX = mousePos[0] - rect.left;
+                const relativeY = mousePos[1] - rect.top;
+                
+                // Apply inverse transform
+                const det = transform.a * transform.d - transform.b * transform.c;
+                if (det !== 0) {
+                    const invA = transform.d / det;
+                    const invB = -transform.b / det;
+                    const invC = -transform.c / det;
+                    const invD = transform.a / det;
+                    const invE = -(transform.e * invA + transform.f * invC);
+                    const invF = -(transform.e * invB + transform.f * invD);
+                    
+                    graphPos = [
+                        relativeX * invA + relativeY * invC + invE,
+                        relativeX * invB + relativeY * invD + invF
+                    ];
+                    
+                    console.log('[FF Group Positioner] Using transform matrix conversion:', graphPos);
+                    console.log('[FF Group Positioner] Matrix conversion details:', {
+                        mousePos: mousePos,
+                        rect: { left: rect.left, top: rect.top },
+                        relative: [relativeX, relativeY],
+                        transform: transform,
+                        calculated: graphPos
+                    });
+                }
+            }
+        }
     }
     
     console.log('[FF Group Positioner] Final graph coordinates:', graphPos);
