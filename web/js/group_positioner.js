@@ -89,9 +89,7 @@ function findGroupByName(groupName) {
 
 // Position group under cursor
 function positionGroupUnderCursor(groupName) {
-    if (config.debug_mode) {
-        console.log('[FF Group Positioner] DEBUG: Attempting to position group:', groupName);
-    }
+    console.log('[FF Group Positioner] DEBUG: Attempting to position group:', groupName);
     
     const app = getApp();
     if (!app) {
@@ -109,91 +107,110 @@ function positionGroupUnderCursor(groupName) {
     const canvas = app.canvas;
     if (!canvas || !canvas.mouse) {
         console.warn('[FF Group Positioner] Mouse position not available');
-        if (config.debug_mode) {
-            console.log('[FF Group Positioner] DEBUG: Canvas:', canvas);
-            console.log('[FF Group Positioner] DEBUG: Canvas mouse:', canvas?.mouse);
-        }
+        console.log('[FF Group Positioner] DEBUG: Canvas:', canvas);
+        console.log('[FF Group Positioner] DEBUG: Canvas mouse:', canvas?.mouse);
         return;
     }
     
     const mousePos = canvas.mouse;
-    if (config.debug_mode) {
-        console.log('[FF Group Positioner] DEBUG: Mouse position:', mousePos);
-    }
+    console.log('[FF Group Positioner] DEBUG: Mouse position:', mousePos);
     
     // Calculate group dimensions
     const groupWidth = group.size[0];
     const groupHeight = group.size[1];
     
-    if (config.debug_mode) {
-        console.log('[FF Group Positioner] DEBUG: Group dimensions:', { width: groupWidth, height: groupHeight });
-        console.log('[FF Group Positioner] DEBUG: Current group position:', group.pos);
-    }
+    console.log('[FF Group Positioner] DEBUG: Group dimensions:', { width: groupWidth, height: groupHeight });
+    console.log('[FF Group Positioner] DEBUG: Current group position:', group.pos);
     
-    // Position group center under cursor
-    const newX = mousePos[0] - groupWidth / 2;
-    const newY = mousePos[1] - groupHeight / 2;
+    // Get canvas offset and zoom for proper positioning
+    const canvasOffset = canvas.offset || [0, 0];
+    const canvasScale = canvas.scale || 1;
     
-    if (config.debug_mode) {
-        console.log('[FF Group Positioner] DEBUG: New position calculated:', { x: newX, y: newY });
-    }
+    console.log('[FF Group Positioner] DEBUG: Canvas offset:', canvasOffset);
+    console.log('[FF Group Positioner] DEBUG: Canvas scale:', canvasScale);
+    
+    // Calculate adjusted mouse position (accounting for canvas transform)
+    const adjustedMouseX = (mousePos[0] - canvasOffset[0]) / canvasScale;
+    const adjustedMouseY = (mousePos[1] - canvasOffset[1]) / canvasScale;
+    
+    console.log('[FF Group Positioner] DEBUG: Adjusted mouse position:', [adjustedMouseX, adjustedMouseY]);
+    
+    // Calculate the offset to move the group
+    const currentGroupX = group.pos[0];
+    const currentGroupY = group.pos[1];
+    const newGroupX = adjustedMouseX - groupWidth / 2;
+    const newGroupY = adjustedMouseY - groupHeight / 2;
+    
+    const offsetX = newGroupX - currentGroupX;
+    const offsetY = newGroupY - currentGroupY;
+    
+    console.log('[FF Group Positioner] DEBUG: Group offset calculated:', { offsetX, offsetY });
     
     // Update group position
-    group.pos = [newX, newY];
+    group.pos = [newGroupX, newGroupY];
+    
+    // Move all nodes within the group by the same offset
+    if (app.graph._nodes) {
+        let movedNodes = 0;
+        for (const node of app.graph._nodes) {
+            if (node.group_id === group.id) {
+                const oldPos = node.pos;
+                node.pos = [oldPos[0] + offsetX, oldPos[1] + offsetY];
+                movedNodes++;
+                console.log(`[FF Group Positioner] DEBUG: Moved node ${node.title || node.id} from [${oldPos[0]}, ${oldPos[1]}] to [${node.pos[0]}, ${node.pos[1]}]`);
+            }
+        }
+        console.log(`[FF Group Positioner] DEBUG: Moved ${movedNodes} nodes with the group`);
+    }
     
     // Trigger graph change to update the UI
     app.graph.change();
     
-    console.log(`[FF Group Positioner] Positioned group "${groupName}" at (${newX.toFixed(2)}, ${newY.toFixed(2)})`);
+    console.log(`[FF Group Positioner] Positioned group "${groupName}" and its contents at (${newGroupX.toFixed(2)}, ${newGroupY.toFixed(2)})`);
 }
 
 // Handle keyboard shortcuts
 function handleKeyDown(event) {
-    if (!config.enabled) {
-        if (config.debug_mode) {
+    // Always reload config before checking shortcut to ensure we have latest settings
+    loadConfig().then(() => {
+        if (!config.enabled) {
             console.log('[FF Group Positioner] DEBUG: Feature disabled, ignoring key press');
+            return;
         }
-        return;
-    }
-    
-    // Check if the pressed key matches our shortcut
-    let keyPressed = event.key;
-    let keyCode = event.code;
-    
-    // Handle modifier keys
-    if (event.ctrlKey) keyPressed = 'Ctrl+' + keyPressed;
-    if (event.altKey) keyPressed = 'Alt+' + keyPressed;
-    if (event.shiftKey) keyPressed = 'Shift+' + keyPressed;
-    if (event.metaKey) keyPressed = 'Meta+' + keyPressed;
-    
-    if (config.debug_mode) {
-        console.log('[FF Group Positioner] DEBUG: Key pressed:', keyPressed, 'Key code:', keyCode, 'Expected:', config.shortcut_key);
-    }
-    
-    // Check for exact match first
-    if (keyPressed === config.shortcut_key) {
-        if (config.debug_mode) {
-            console.log('[FF Group Positioner] DEBUG: Shortcut matched! Triggering positioning...');
-        }
-        event.preventDefault();
-        positionGroupUnderCursor(config.group_name);
-        return;
-    }
-    
-    // Fallback: Check if it's a function key and handle different formats
-    if (config.shortcut_key.startsWith('F') && keyCode) {
-        const functionKeyNumber = config.shortcut_key.substring(1);
-        const expectedKeyCode = `F${functionKeyNumber}`;
         
-        if (keyCode === expectedKeyCode) {
-            if (config.debug_mode) {
-                console.log('[FF Group Positioner] DEBUG: Function key matched via keyCode! Triggering positioning...');
-            }
+        // Check if the pressed key matches our shortcut
+        let keyPressed = event.key;
+        let keyCode = event.code;
+        
+        // Handle modifier keys
+        if (event.ctrlKey) keyPressed = 'Ctrl+' + keyPressed;
+        if (event.altKey) keyPressed = 'Alt+' + keyPressed;
+        if (event.shiftKey) keyPressed = 'Shift+' + keyPressed;
+        if (event.metaKey) keyPressed = 'Meta+' + keyPressed;
+        
+        console.log('[FF Group Positioner] DEBUG: Key pressed:', keyPressed, 'Key code:', keyCode, 'Expected:', config.shortcut_key);
+        
+        // Check for exact match first
+        if (keyPressed === config.shortcut_key) {
+            console.log('[FF Group Positioner] DEBUG: Shortcut matched! Triggering positioning...');
             event.preventDefault();
             positionGroupUnderCursor(config.group_name);
             return;
         }
-    }
+        
+        // Fallback: Check if it's a function key and handle different formats
+        if (config.shortcut_key.startsWith('F') && keyCode) {
+            const functionKeyNumber = config.shortcut_key.substring(1);
+            const expectedKeyCode = `F${functionKeyNumber}`;
+            
+            if (keyCode === expectedKeyCode) {
+                console.log('[FF Group Positioner] DEBUG: Function key matched via keyCode! Triggering positioning...');
+                event.preventDefault();
+                positionGroupUnderCursor(config.group_name);
+                return;
+            }
+        }
+    });
 }
 
 // Create UI buttons
@@ -378,19 +395,34 @@ async function init() {
     // Validate group exists
     validateGroupExists(config.group_name);
     
-    // Set up periodic config checking (every 2 seconds)
+    // Set up periodic config checking (every 1 second for faster response)
     setInterval(async () => {
         const oldConfig = JSON.stringify(config);
         await loadConfig();
         const newConfig = JSON.stringify(config);
         
         if (oldConfig !== newConfig) {
-            if (config.debug_mode) {
-                console.log('[FF Group Positioner] DEBUG: Configuration changed!');
-                console.log('[FF Group Positioner] DEBUG: New config:', config);
-            }
+            console.log('[FF Group Positioner] DEBUG: Configuration changed!');
+            console.log('[FF Group Positioner] DEBUG: Old config:', JSON.parse(oldConfig));
+            console.log('[FF Group Positioner] DEBUG: New config:', config);
             createUIButtons();
             validateGroupExists(config.group_name);
+        }
+    }, 1000);
+    
+    // Also check for group title changes every 2 seconds
+    setInterval(() => {
+        const app = getApp();
+        if (app && app.graph && app.graph._groups) {
+            const groups = app.graph._groups;
+            const groupNames = groups.map(g => g.title);
+            console.log('[FF Group Positioner] DEBUG: Available groups:', groupNames);
+            
+            // Check if our target group still exists
+            const targetGroup = groups.find(g => g.title === config.group_name);
+            if (!targetGroup) {
+                console.log(`[FF Group Positioner] DEBUG: Target group "${config.group_name}" not found in available groups`);
+            }
         }
     }, 2000);
     
@@ -403,7 +435,16 @@ async function init() {
         positionGroupUnderCursor(config.group_name);
     };
     
+    // Add global function to update group name
+    window.updateFlipFlopGroupName = function(newGroupName) {
+        console.log('[FF Group Positioner] Updating group name to:', newGroupName);
+        config.group_name = newGroupName;
+        createUIButtons();
+        validateGroupExists(config.group_name);
+    };
+    
     console.log('[FF Group Positioner] Manual test function available: testFlipFlopGroupPositioner()');
+    console.log('[FF Group Positioner] Group name update function available: updateFlipFlopGroupName("NewGroupName")');
 }
 
 // Wait for ComfyUI to be ready
