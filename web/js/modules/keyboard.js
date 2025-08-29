@@ -1,6 +1,7 @@
 // Keyboard Shortcut Handling Module
 // Handles keyboard events and shortcut detection with real-time widget monitoring
 
+import { getApp } from './app.js';
 import { getConfig, loadConfig } from './config.js';
 import { positionGroupUnderCursor, validateGroupName } from './positioning.js';
 import { logToComfyUI, log } from './logging.js';
