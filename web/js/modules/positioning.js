@@ -149,6 +149,23 @@ export function positionGroupUnderCursor(groupName) {
     // PROPER COORDINATE CONVERSION: Use mouse position directly
     let graphPos;
     
+    // DEBUG: Log all available canvas properties
+    console.log('[FF Group Positioner] Canvas debug info:', {
+        canvas: canvas,
+        canvasType: typeof canvas,
+        canvasKeys: Object.keys(canvas),
+        mouse: canvas.mouse,
+        mouseType: typeof canvas.mouse,
+        scale: canvas.scale,
+        offset: canvas.offset,
+        ds: canvas.ds,
+        dsKeys: canvas.ds ? Object.keys(canvas.ds) : null,
+        transform: canvas.transform,
+        last_mouse_position: canvas.last_mouse_position,
+        canvasElement: canvas.canvas,
+        canvasElementRect: canvas.canvas ? canvas.canvas.getBoundingClientRect() : null
+    });
+    
     // Method 1: Use mouse position directly (simplest approach)
     graphPos = [...mousePos];
     console.log('[FF Group Positioner] Using direct mouse position:', graphPos);
