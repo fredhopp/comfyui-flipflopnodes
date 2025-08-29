@@ -146,7 +146,7 @@ export function positionGroupUnderCursor(groupName) {
     console.log('[FF Group Positioner] Mouse position length:', mousePos.length);
     console.log('[FF Group Positioner] Mouse position values:', [mousePos[0], mousePos[1]]);
     
-    // PROPER COORDINATE CONVERSION: Use ComfyUI's built-in methods
+    // PROPER COORDINATE CONVERSION: Use mouse position directly
     let graphPos;
     
     // DEBUG: Log all available canvas properties
@@ -166,33 +166,29 @@ export function positionGroupUnderCursor(groupName) {
         canvasElementRect: canvas.canvas ? canvas.canvas.getBoundingClientRect() : null
     });
     
-    // Method 1: Use ComfyUI's convertEventToCanvasOffset method (PROPER WAY)
-    if (canvas.convertEventToCanvasOffset && typeof canvas.convertEventToCanvasOffset === 'function') {
-        // Create a mock event object with clientX and clientY
-        const mockEvent = {
-            clientX: mousePos[0],
-            clientY: mousePos[1]
-        };
-        
-        try {
-            graphPos = canvas.convertEventToCanvasOffset(mockEvent);
-            console.log('[FF Group Positioner] Using canvas.convertEventToCanvasOffset method:', graphPos);
-        } catch (error) {
-            console.error('[FF Group Positioner] Error using convertEventToCanvasOffset:', error);
-            graphPos = [...mousePos];
+    // Method 1: Use mouse position directly (simplest approach)
+    graphPos = [...mousePos];
+    console.log('[FF Group Positioner] Using direct mouse position:', graphPos);
+    
+    // Method 2: Use ComfyUI's built-in coordinate conversion (if available)
+    if (canvas.screenToCanvas && typeof canvas.screenToCanvas === 'function') {
+        const convertedPos = canvas.screenToCanvas(mousePos[0], mousePos[1]);
+        console.log('[FF Group Positioner] Using canvas.screenToCanvas method:', convertedPos);
+        // Only use if it's different from mouse position
+        if (convertedPos[0] !== mousePos[0] || convertedPos[1] !== mousePos[1]) {
+            graphPos = convertedPos;
         }
     }
-    // Method 2: Use DragAndScale's convertOffsetToCanvas method
-    else if (canvas.ds && canvas.ds.convertOffsetToCanvas && typeof canvas.ds.convertOffsetToCanvas === 'function') {
-        try {
-            graphPos = canvas.ds.convertOffsetToCanvas(mousePos[0], mousePos[1]);
-            console.log('[FF Group Positioner] Using canvas.ds.convertOffsetToCanvas method:', graphPos);
-        } catch (error) {
-            console.error('[FF Group Positioner] Error using ds.convertOffsetToCanvas:', error);
-            graphPos = [...mousePos];
+    // Method 3: Use display system's coordinate conversion
+    else if (canvas.ds && canvas.ds.screenToCanvas && typeof canvas.ds.screenToCanvas === 'function') {
+        const convertedPos = canvas.ds.screenToCanvas(mousePos[0], mousePos[1]);
+        console.log('[FF Group Positioner] Using canvas.ds.screenToCanvas method:', convertedPos);
+        // Only use if it's different from mouse position
+        if (convertedPos[0] !== mousePos[0] || convertedPos[1] !== mousePos[1]) {
+            graphPos = convertedPos;
         }
     }
-    // Method 3: Use manual conversion as fallback
+    // Method 4: Manual conversion using canvas transform properties
     else {
         // Get canvas transform properties (scale and offset)
         const scale = canvas.scale || 1;
@@ -220,7 +216,20 @@ export function positionGroupUnderCursor(groupName) {
             calculated: convertedPos
         });
         
-        graphPos = convertedPos;
+        // Log the actual conversion details values
+        console.log('[FF Group Positioner] Manual conversion details expanded:', {
+            mousePos: [mousePos[0], mousePos[1]],
+            offset: [offset[0], offset[1]],
+            scale: scale,
+            calculated: [convertedPos[0], convertedPos[1]]
+        });
+        
+        // Only use if it's significantly different from mouse position
+        const diffX = Math.abs(convertedPos[0] - mousePos[0]);
+        const diffY = Math.abs(convertedPos[1] - mousePos[1]);
+        if (diffX > 10 || diffY > 10) {
+            graphPos = convertedPos;
+        }
     }
     
     console.log('[FF Group Positioner] Final graph coordinates:', graphPos);
