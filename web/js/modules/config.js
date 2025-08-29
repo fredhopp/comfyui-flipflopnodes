@@ -65,6 +65,7 @@ export async function loadConfig() {
         const newConfig = getConfigFromGraph();
         
         if (!newConfig) {
+            console.warn('[FF Group Positioner] No config found in graph');
             return false;
         }
         
@@ -72,7 +73,12 @@ export async function loadConfig() {
         config = { ...config, ...newConfig };
         const newConfigStr = JSON.stringify(config);
         
-        return oldConfig !== newConfigStr; // Return true if config changed
+        const changed = oldConfig !== newConfigStr;
+        if (changed) {
+            console.log('[FF Group Positioner] Config changed:', { old: JSON.parse(oldConfig), new: config });
+        }
+        
+        return changed; // Return true if config changed
     } catch (error) {
         console.warn('[FF Group Positioner] Could not load config from graph:', error);
         return false;
