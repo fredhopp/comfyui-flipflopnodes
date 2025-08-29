@@ -1,5 +1,7 @@
 // Configuration Management Module
-// Handles loading and caching of configuration with improved cache-busting
+// Gets configuration directly from the graph instead of files
+
+import { getApp } from './app.js';
 
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -12,64 +14,81 @@ const DEFAULT_CONFIG = {
 // Current configuration
 let config = { ...DEFAULT_CONFIG };
 
-// Load configuration from the backend with aggressive cache-busting
+// Get configuration directly from the graph (like rgthree-comfy does)
+export function getConfigFromGraph() {
+    const app = getApp();
+    if (!app || !app.graph || !app.graph._nodes) {
+        console.warn('[FF Group Positioner] Cannot access graph');
+        return null;
+    }
+    
+    // Find our Group Positioner node
+    const positionerNodes = app.graph._nodes.filter(node => 
+        node.comfyClass === 'FlipFlop_Group_Positioner'
+    );
+    
+    if (positionerNodes.length === 0) {
+        console.log('[FF Group Positioner] No Group Positioner node found in graph');
+        return null;
+    }
+    
+    // Use the first node found (or could iterate through all)
+    const node = positionerNodes[0];
+    
+    // Extract widget values directly from the node
+    const widgets = node.widgets || [];
+    const newConfig = { ...DEFAULT_CONFIG };
+    
+    for (const widget of widgets) {
+        switch (widget.name) {
+            case 'group_name':
+                newConfig.group_name = widget.value || DEFAULT_CONFIG.group_name;
+                break;
+            case 'shortcut_key':
+                newConfig.shortcut_key = widget.value || DEFAULT_CONFIG.shortcut_key;
+                break;
+            case 'enabled':
+                newConfig.enabled = widget.value !== undefined ? widget.value : DEFAULT_CONFIG.enabled;
+                break;
+            case 'debug_mode':
+                newConfig.debug_mode = widget.value !== undefined ? widget.value : DEFAULT_CONFIG.debug_mode;
+                break;
+        }
+    }
+    
+    console.log('[FF Group Positioner] Config from graph:', newConfig);
+    return newConfig;
+}
+
+// Load configuration from the graph (replaces file-based loading)
 export async function loadConfig() {
     try {
-        console.log('[FF Group Positioner] Loading config from server...');
+        console.log('[FF Group Positioner] Loading config from graph...');
         
-        // Add aggressive cache-busting parameters
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(7);
-        const response = await fetch(`/flipflop/config/group_positioner.json?t=${timestamp}&r=${randomId}`, {
-            method: 'GET',
-            headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-            }
-        });
+        const newConfig = getConfigFromGraph();
         
-        console.log('[FF Group Positioner] Server response status:', response.status);
-        
-        if (response.ok) {
-            const newConfig = await response.json();
-            console.log('[FF Group Positioner] Server returned config:', newConfig);
-            
-            // Validate the config structure
-            if (!newConfig || typeof newConfig !== 'object') {
-                console.warn('[FF Group Positioner] Invalid config structure:', newConfig);
-                return false;
-            }
-            
-            const oldConfig = JSON.stringify(config);
-            config = { ...config, ...newConfig };
-            const newConfigStr = JSON.stringify(config);
-            
-            console.log('[FF Group Positioner] Current config after merge:', config);
-            
-            if (oldConfig !== newConfigStr) {
-                console.log('[FF Group Positioner] Configuration changed!');
-                console.log('[FF Group Positioner] Old config:', JSON.parse(oldConfig));
-                console.log('[FF Group Positioner] New config:', config);
-                return true; // Config changed
-            } else {
-                console.log('[FF Group Positioner] No config changes detected');
-                return false; // No changes
-            }
-        } else {
-            console.warn('[FF Group Positioner] Server returned status:', response.status);
-            // Try to get response text for debugging
-            try {
-                const errorText = await response.text();
-                console.warn('[FF Group Positioner] Error response:', errorText);
-            } catch (e) {
-                console.warn('[FF Group Positioner] Could not read error response');
-            }
+        if (!newConfig) {
+            console.log('[FF Group Positioner] No config found in graph, using defaults');
             return false;
         }
+        
+        const oldConfig = JSON.stringify(config);
+        config = { ...config, ...newConfig };
+        const newConfigStr = JSON.stringify(config);
+        
+        console.log('[FF Group Positioner] Current config after merge:', config);
+        
+        if (oldConfig !== newConfigStr) {
+            console.log('[FF Group Positioner] Configuration changed!');
+            console.log('[FF Group Positioner] Old config:', JSON.parse(oldConfig));
+            console.log('[FF Group Positioner] New config:', config);
+            return true; // Config changed
+        } else {
+            console.log('[FF Group Positioner] No config changes detected');
+            return false; // No changes
+        }
     } catch (error) {
-        console.warn('[FF Group Positioner] Could not load group positioner config:', error);
-        console.warn('[FF Group Positioner] Error details:', error.message);
+        console.warn('[FF Group Positioner] Could not load config from graph:', error);
         return false;
     }
 }

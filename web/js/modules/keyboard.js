@@ -1,17 +1,48 @@
 // Keyboard Shortcut Handling Module
-// Handles keyboard events and shortcut detection
+// Handles keyboard events and shortcut detection with real-time widget monitoring
 
 import { getConfig, loadConfig } from './config.js';
 import { positionGroupUnderCursor, validateGroupName } from './positioning.js';
 import { logToComfyUI, log } from './logging.js';
 
+// Monitor widget changes in real-time (like rgthree-comfy)
+let lastWidgetValues = {};
+
+// Check if widget values have changed
+function checkWidgetChanges() {
+    const app = getApp();
+    if (!app || !app.graph || !app.graph._nodes) return false;
+    
+    const positionerNodes = app.graph._nodes.filter(node => 
+        node.comfyClass === 'FlipFlop_Group_Positioner'
+    );
+    
+    if (positionerNodes.length === 0) return false;
+    
+    const node = positionerNodes[0];
+    const widgets = node.widgets || [];
+    const currentValues = {};
+    
+    for (const widget of widgets) {
+        currentValues[widget.name] = widget.value;
+    }
+    
+    const hasChanged = JSON.stringify(currentValues) !== JSON.stringify(lastWidgetValues);
+    lastWidgetValues = { ...currentValues };
+    
+    return hasChanged;
+}
+
 // Handle keyboard shortcuts
 export async function handleKeyDown(event) {
     try {
-        // Always reload config before checking shortcut to ensure we have latest settings
+        // Check if widget values have changed (real-time monitoring)
+        const widgetsChanged = checkWidgetChanges();
+        
+        // Always reload config to ensure we have latest settings
         const configChanged = await loadConfig();
         
-        if (configChanged) {
+        if (configChanged || widgetsChanged) {
             const config = getConfig();
             await logToComfyUI('config_loaded', {
                 group_name: config.group_name,
