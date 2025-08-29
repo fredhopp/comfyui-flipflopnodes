@@ -87,12 +87,19 @@ let config = {
 // Load configuration from the backend
 async function loadConfig() {
     try {
+        console.log('[FF Group Positioner] Loading config from server...');
         const response = await fetch('/flipflop/config/group_positioner.json');
+        console.log('[FF Group Positioner] Server response status:', response.status);
+        
         if (response.ok) {
             const newConfig = await response.json();
+            console.log('[FF Group Positioner] Server returned config:', newConfig);
+            
             const oldConfig = JSON.stringify(config);
             config = { ...config, ...newConfig };
             const newConfigStr = JSON.stringify(config);
+            
+            console.log('[FF Group Positioner] Current config after merge:', config);
             
             if (oldConfig !== newConfigStr) {
                 console.log('[FF Group Positioner] Configuration changed!');
@@ -101,6 +108,8 @@ async function loadConfig() {
                 
                 // Validate group name whenever config changes
                 validateGroupName(config.group_name);
+            } else {
+                console.log('[FF Group Positioner] No config changes detected');
             }
         } else {
             console.warn('[FF Group Positioner] Server returned status:', response.status);
@@ -341,7 +350,15 @@ async function init() {
         positionGroupUnderCursor(config.group_name);
     };
     
+    // Add global function to force config reload
+    window.reloadFlipFlopConfig = async function() {
+        console.log('[FF Group Positioner] Manual config reload called');
+        await loadConfig();
+        console.log('[FF Group Positioner] Current config after manual reload:', config);
+    };
+    
     console.log('[FF Group Positioner] Manual test function available: testFlipFlopGroupPositioner()');
+    console.log('[FF Group Positioner] Manual config reload available: reloadFlipFlopConfig()');
 }
 
 // Wait for ComfyUI to be ready
