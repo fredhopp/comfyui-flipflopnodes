@@ -11,7 +11,16 @@ let globalMousePosition = [0, 0]; // Track global mouse position
 
 // Track mouse position globally
 function updateGlobalMousePosition(event) {
-    globalMousePosition = [event.clientX, event.clientY];
+    // For mouse events, use clientX/clientY
+    if (event.clientX !== undefined && event.clientY !== undefined) {
+        globalMousePosition = [event.clientX, event.clientY];
+        // Debug: log mouse position updates (but only occasionally to avoid spam)
+        if (Math.random() < 0.01) { // Only log 1% of mouse moves
+            log(`Mouse position updated: [${globalMousePosition[0]}, ${globalMousePosition[1]}]`, 'DEBUG');
+        }
+    }
+    // For keyboard events, we'll use the last known mouse position
+    // which should be updated by mouse events
 }
 
 function checkWidgetChanges() {
@@ -43,8 +52,8 @@ function checkWidgetChanges() {
 }
 
 export async function handleKeyDown(event) {
-    // Update global mouse position
-    updateGlobalMousePosition(event);
+    // Don't update mouse position for keyboard events
+    // Mouse position should already be tracked by mouse events
     
     // Reload config and check for widget changes
     await loadConfig();
@@ -81,13 +90,36 @@ export async function handleKeyDown(event) {
         log('Shortcut matched! Triggering positioning...', 'INFO');
         event.preventDefault();
         
-        // Log the global mouse position
-        log(`Global mouse position: [${globalMousePosition[0]}, ${globalMousePosition[1]}]`, 'DEBUG');
+        // Get current mouse position if globalMousePosition is not set
+        let currentMousePos = globalMousePosition;
+        if (currentMousePos[0] === undefined || currentMousePos[1] === undefined) {
+            // Fallback: try to get mouse position from a different source
+            const app = getApp();
+            if (app && app.canvas) {
+                // Try to get mouse position from canvas
+                const canvas = app.canvas;
+                if (canvas.mouse && canvas.mouse[0] !== undefined && canvas.mouse[1] !== undefined) {
+                    currentMousePos = canvas.mouse;
+                    log(`Using canvas mouse position: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'DEBUG');
+                } else {
+                    // Last resort: use center of viewport
+                    currentMousePos = [window.innerWidth / 2, window.innerHeight / 2];
+                    log(`Using viewport center as fallback: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'WARN');
+                }
+            } else {
+                // Last resort: use center of viewport
+                currentMousePos = [window.innerWidth / 2, window.innerHeight / 2];
+                log(`Using viewport center as fallback: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'WARN');
+            }
+        }
+        
+        // Log the mouse position we're using
+        log(`Using mouse position: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'DEBUG');
         
         await logToComfyUI('shortcut_pressed', {
             shortcut: config.shortcut_key,
             group_name: config.group_name,
-            mouse_position: globalMousePosition
+            mouse_position: currentMousePos
         });
         
         // Find the group and position it
@@ -95,7 +127,7 @@ export async function handleKeyDown(event) {
         if (app && app.graph && app.graph._groups) {
             const group = app.graph._groups.find(g => g.title === config.group_name);
             if (group) {
-                await positionGroupAt(config.group_name, group.id, globalMousePosition);
+                await positionGroupAt(config.group_name, group.id, currentMousePos);
             } else {
                 log(`Group '${config.group_name}' not found`, 'WARN');
             }
@@ -110,13 +142,36 @@ export async function handleKeyDown(event) {
             log('Function key matched via keyCode! Triggering positioning...', 'INFO');
             event.preventDefault();
             
-            // Log the global mouse position
-            log(`Global mouse position: [${globalMousePosition[0]}, ${globalMousePosition[1]}]`, 'DEBUG');
+            // Get current mouse position if globalMousePosition is not set
+            let currentMousePos = globalMousePosition;
+            if (currentMousePos[0] === undefined || currentMousePos[1] === undefined) {
+                // Fallback: try to get mouse position from a different source
+                const app = getApp();
+                if (app && app.canvas) {
+                    // Try to get mouse position from canvas
+                    const canvas = app.canvas;
+                    if (canvas.mouse && canvas.mouse[0] !== undefined && canvas.mouse[1] !== undefined) {
+                        currentMousePos = canvas.mouse;
+                        log(`Using canvas mouse position: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'DEBUG');
+                    } else {
+                        // Last resort: use center of viewport
+                        currentMousePos = [window.innerWidth / 2, window.innerHeight / 2];
+                        log(`Using viewport center as fallback: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'WARN');
+                    }
+                } else {
+                    // Last resort: use center of viewport
+                    currentMousePos = [window.innerWidth / 2, window.innerHeight / 2];
+                    log(`Using viewport center as fallback: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'WARN');
+                }
+            }
+            
+            // Log the mouse position we're using
+            log(`Using mouse position: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'DEBUG');
             
             await logToComfyUI('shortcut_pressed', {
                 shortcut: config.shortcut_key,
                 group_name: config.group_name,
-                mouse_position: globalMousePosition
+                mouse_position: currentMousePos
             });
             
             // Find the group and position it
@@ -124,7 +179,7 @@ export async function handleKeyDown(event) {
             if (app && app.graph && app.graph._groups) {
                 const group = app.graph._groups.find(g => g.title === config.group_name);
                 if (group) {
-                    await positionGroupAt(config.group_name, group.id, globalMousePosition);
+                    await positionGroupAt(config.group_name, group.id, currentMousePos);
                 } else {
                     log(`Group '${config.group_name}' not found`, 'WARN');
                 }
