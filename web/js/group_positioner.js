@@ -1,6 +1,24 @@
 // Group Positioner Extension for ComfyUI
 // This extension allows positioning a group under the cursor when a shortcut key is pressed
 
+// Function to log to ComfyUI console via Python
+async function logToComfyUI(action, data = {}) {
+    try {
+        await fetch('/flipflop/trigger_log', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: action,
+                ...data
+            })
+        });
+    } catch (error) {
+        console.error('[FF Group Positioner] Failed to log to ComfyUI console:', error);
+    }
+}
+
 console.log('[FF Group Positioner] Script starting...');
 
 // Wait for ComfyUI to be available
@@ -60,30 +78,32 @@ async function loadConfig() {
 }
 
 // Validate group name and check for duplicates
-function validateGroupName(groupName) {
-    console.log(`[FF Group Positioner] Validating group name: '${groupName}'`);
-    
+async function validateGroupName(groupName) {
     const app = getApp();
     if (!app || !app.graph || !app.graph._groups) {
-        console.log('[FF Group Positioner] Cannot validate group - app or graph not available');
+        await logToComfyUI('group_validation', {
+            group_name: groupName,
+            available_groups: [],
+            matching_groups: [],
+            error: 'Cannot validate group - app or graph not available'
+        });
         return false;
     }
     
     const groups = app.graph._groups;
     const matchingGroups = groups.filter(g => g.title === groupName);
     
-    console.log('[FF Group Positioner] Available groups:', groups.map(g => g.title));
-    console.log(`[FF Group Positioner] Groups matching '${groupName}':`, matchingGroups.map(g => g.title));
+    await logToComfyUI('group_validation', {
+        group_name: groupName,
+        available_groups: groups.map(g => g.title),
+        matching_groups: matchingGroups.map(g => g.title)
+    });
     
     if (matchingGroups.length === 0) {
-        console.warn(`[FF Group Positioner] WARNING: No group found with name '${groupName}'`);
         return false;
     } else if (matchingGroups.length > 1) {
-        console.warn(`[FF Group Positioner] WARNING: Multiple groups found with name '${groupName}' (${matchingGroups.length} groups)`);
-        console.warn('[FF Group Positioner] Using the first group found');
         return true;
     } else {
-        console.log(`[FF Group Positioner] ✓ Group '${groupName}' found and validated`);
         return true;
     }
 }
@@ -112,8 +132,13 @@ function findGroupByName(groupName) {
 }
 
 // Position group under cursor
-function positionGroupUnderCursor(groupName) {
-    console.log(`[FF Group Positioner] Attempting to position group: '${groupName}'`);
+async function positionGroupUnderCursor(groupName) {
+    // First validate the group exists
+    const isValid = await validateGroupName(groupName);
+    if (!isValid) {
+        console.warn(`[FF Group Positioner] Group '${groupName}' not found or invalid`);
+        return;
+    }
     
     const app = getApp();
     if (!app) {
@@ -137,14 +162,17 @@ function positionGroupUnderCursor(groupName) {
     }
     
     const mousePos = canvas.mouse;
-    console.log('[FF Group Positioner] Mouse position:', mousePos);
+    
+    // Log positioning action to ComfyUI console
+    await logToComfyUI('positioning', {
+        group_name: groupName,
+        mouse_pos: mousePos,
+        group_pos: group.pos
+    });
     
     // Calculate group dimensions
     const groupWidth = group.size[0];
     const groupHeight = group.size[1];
-    
-    console.log('[FF Group Positioner] Group dimensions:', { width: groupWidth, height: groupHeight });
-    console.log('[FF Group Positioner] Current group position:', group.pos);
     
     // Get canvas offset and zoom for proper positioning
     const canvasOffset = canvas.offset || [0, 0];
@@ -194,9 +222,11 @@ function positionGroupUnderCursor(groupName) {
 }
 
 // Handle keyboard shortcuts
-function handleKeyDown(event) {
-    // Always reload config before checking shortcut to ensure we have latest settings
-    loadConfig().then(() => {
+async function handleKeyDown(event) {
+    try {
+        // Always reload config before checking shortcut to ensure we have latest settings
+        await loadConfig();
+        
         if (!config.enabled) {
             console.log('[FF Group Positioner] Feature disabled, ignoring key press');
             return;
@@ -218,7 +248,14 @@ function handleKeyDown(event) {
         if (keyPressed === config.shortcut_key) {
             console.log('[FF Group Positioner] Shortcut matched! Triggering positioning...');
             event.preventDefault();
-            positionGroupUnderCursor(config.group_name);
+            
+            // Log shortcut press to ComfyUI console
+            await logToComfyUI('shortcut_pressed', {
+                shortcut: config.shortcut_key,
+                group_name: config.group_name
+            });
+            
+            await positionGroupUnderCursor(config.group_name);
             return;
         }
         
@@ -230,11 +267,20 @@ function handleKeyDown(event) {
             if (keyCode === expectedKeyCode) {
                 console.log('[FF Group Positioner] Function key matched via keyCode! Triggering positioning...');
                 event.preventDefault();
-                positionGroupUnderCursor(config.group_name);
+                
+                // Log shortcut press to ComfyUI console
+                await logToComfyUI('shortcut_pressed', {
+                    shortcut: config.shortcut_key,
+                    group_name: config.group_name
+                });
+                
+                await positionGroupUnderCursor(config.group_name);
                 return;
             }
         }
-    });
+    } catch (error) {
+        console.error('[FF Group Positioner] Error in keyboard handler:', error);
+    }
 }
 
 // Initialize the extension
