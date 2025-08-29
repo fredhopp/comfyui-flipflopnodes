@@ -191,7 +191,19 @@ export function positionGroupUnderCursor(groupName) {
     const groupNodes = getGroupNodes(group);
     console.log(`[FF Group Positioner] Found ${groupNodes.length} nodes to move with group`);
     
-    // Move all nodes within the group by the same offset
+    // Check for drawing order properties (debugging)
+    console.log('[FF Group Positioner] Checking for drawing order properties...');
+    console.log('[FF Group Positioner] Group properties:', Object.keys(group));
+    if (groupNodes.length > 0) {
+        console.log('[FF Group Positioner] First node properties:', Object.keys(groupNodes[0]));
+    }
+    
+    // DRAWING ORDER FIX: Move group FIRST to ensure it stays behind nodes
+    console.log('[FF Group Positioner] Moving group FIRST to maintain proper layering...');
+    group.pos = [newGroupX, newGroupY];
+    console.log(`[FF Group Positioner] Moved group to [${newGroupX}, ${newGroupY}]`);
+    
+    // Then move all nodes within the group by the same offset
     let movedNodes = 0;
     for (const node of groupNodes) {
         if (node.pos) {
@@ -201,10 +213,6 @@ export function positionGroupUnderCursor(groupName) {
             console.log(`[FF Group Positioner] Moved node ${node.title || node.id} from [${oldPos[0]}, ${oldPos[1]}] to [${node.pos[0]}, ${node.pos[1]}]`);
         }
     }
-    
-    // NOW move the group itself
-    group.pos = [newGroupX, newGroupY];
-    console.log(`[FF Group Positioner] Moved group to [${newGroupX}, ${newGroupY}]`);
     
     console.log(`[FF Group Positioner] Moved ${movedNodes} nodes with the group`);
     
