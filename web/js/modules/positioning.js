@@ -37,21 +37,33 @@ export function findNodesInGroup(groupName, groupId) {
     console.log(`[FF Group Positioner] Looking for nodes in group '${groupName}' (id: ${groupId})`);
     console.log(`[FF Group Positioner] Total nodes in graph: ${app.graph._nodes.length}`);
     
+    // Debug: Log all nodes and their group properties
+    app.graph._nodes.forEach((node, index) => {
+        console.log(`[FF Group Positioner] Node ${index}: ${node.title || node.type} - group_id: ${node.group_id}, group: ${node.group}, groupName: ${node.groupName}, group_name: ${node.group_name}`);
+    });
+    
     const nodes = [];
     
-    // Method 1: Check if nodes have group_id property
+    // Method 1: Check if nodes have group_id property (most common)
     const method1Nodes = app.graph._nodes.filter(node => 
         node.group_id === groupId
     );
     console.log(`[FF Group Positioner] Method 1 (group_id): Found ${method1Nodes.length} nodes`);
     nodes.push(...method1Nodes);
     
-    // Method 2: Check if nodes have group property
+    // Method 2: Check if nodes have group property (alternative)
     const method2Nodes = app.graph._nodes.filter(node => 
         node.group === groupId
     );
     console.log(`[FF Group Positioner] Method 2 (group): Found ${method2Nodes.length} nodes`);
     nodes.push(...method2Nodes);
+    
+    // Method 2.5: Check if nodes have group property as string (some versions)
+    const method2bNodes = app.graph._nodes.filter(node => 
+        node.group === groupName
+    );
+    console.log(`[FF Group Positioner] Method 2b (group as string): Found ${method2bNodes.length} nodes`);
+    nodes.push(...method2bNodes);
     
     // Method 3: Check if nodes overlap with group bounds (fallback)
     const group = app.graph._groups.find(g => g.id === groupId);
@@ -211,11 +223,13 @@ export async function positionGroupAt(groupName, groupId, mousePos) {
     console.log(`[FF Group Positioner] Finding nodes BEFORE moving group...`);
     const nodesInGroup = findNodesInGroup(groupName, groupId);
     
+    // Store the old group position BEFORE moving it
+    const oldGroupPos = [...group.pos];
+    
     // Move the group
     group.pos = newGroupPos;
     
-    // Move all nodes in the group by the same offset
-    const oldGroupPos = group.pos;
+    // Calculate the offset from old to new position
     const offsetX = newGroupPos[0] - oldGroupPos[0];
     const offsetY = newGroupPos[1] - oldGroupPos[1];
     
