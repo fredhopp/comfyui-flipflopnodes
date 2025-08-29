@@ -1,379 +1,119 @@
 // Group Positioner Extension for ComfyUI
-// This extension allows positioning a group under the cursor when a shortcut key is pressed
+// Main entry point - uses ES6 modules and rgthree-comfy patterns
 
-// Function to log to ComfyUI console and show notifications
-async function logToComfyUI(action, data = {}) {
-    const app = getApp();
-    
-    // Create log message
-    let message = '';
-    switch (action) {
-        case 'shortcut_pressed':
-            message = `Shortcut pressed: ${data.shortcut} for group: ${data.group_name}`;
-            break;
-        case 'group_validation':
-            if (data.error) {
-                message = `Group validation error: ${data.error}`;
-            } else {
-                const available = data.available_groups.join(', ');
-                const matching = data.matching_groups.join(', ');
-                message = `Group validation: '${data.group_name}' - Available: [${available}] - Matching: [${matching}]`;
-            }
-            break;
-        case 'positioning':
-            message = `Positioning group: '${data.group_name}' at mouse [${data.mouse_pos}] from group [${data.group_pos}]`;
-            break;
-        default:
-            message = data.message || 'Unknown action';
+import { waitForComfyUI, setupGraphMonitoring } from './modules/app.js';
+import { loadConfig, getConfig } from './modules/config.js';
+import { positionGroupUnderCursor, validateGroupName } from './modules/positioning.js';
+import { logToComfyUI, log } from './modules/logging.js';
+import { setupKeyboardListener } from './modules/keyboard.js';
+
+// Service-based configuration monitoring (like rgthree-comfy)
+class ConfigService {
+    constructor() {
+        this.msThreshold = 400;
+        this.msLastCheck = 0;
+        this.runScheduledForMs = null;
+        this.runScheduleTimeout = null;
+        this.runScheduleAnimation = null;
+        this.onConfigChange = null;
     }
     
-    // Log to browser console (always visible)
-    console.log(`%c[FF Group Positioner] ${message}`, 'color: #4CAF50; font-weight: bold;');
-    
-    // Show notification in ComfyUI (if app is available)
-    if (app && app.ui && app.ui.notifications) {
-        app.ui.notifications.show(`[FF Group Positioner] ${message}`, 3000);
+    setOnConfigChange(callback) {
+        this.onConfigChange = callback;
     }
     
-    // Also try to log to ComfyUI console via Python (only works when graph runs)
-    try {
-        await fetch('/flipflop/trigger_log', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: action,
-                ...data
-            })
-        });
-    } catch (error) {
-        // Silently fail - this is expected when graph isn't running
-    }
-}
-
-console.log('[FF Group Positioner] Script starting...');
-
-// Wait for ComfyUI to be available
-let app = null;
-
-// Function to get the ComfyUI app instance
-function getApp() {
-    if (app) return app;
-    
-    // Try different ways to access the ComfyUI app
-    if (window.app) {
-        app = window.app;
-        return app;
-    }
-    
-    // Look for ComfyUI in the global scope
-    if (window.ComfyApp) {
-        app = window.ComfyApp;
-        return app;
-    }
-    
-    return null;
-}
-
-// Configuration
-let config = {
-    group_name: "MOVABLE",
-    shortcut_key: "F8",
-    enabled: true,
-    debug_mode: true
-};
-
-// Load configuration from the backend
-async function loadConfig() {
-    try {
-        console.log('[FF Group Positioner] Loading config from server...');
-        const response = await fetch('/flipflop/config/group_positioner.json');
-        console.log('[FF Group Positioner] Server response status:', response.status);
-        
-        if (response.ok) {
-            const newConfig = await response.json();
-            console.log('[FF Group Positioner] Server returned config:', newConfig);
-            
-            const oldConfig = JSON.stringify(config);
-            config = { ...config, ...newConfig };
-            const newConfigStr = JSON.stringify(config);
-            
-            console.log('[FF Group Positioner] Current config after merge:', config);
-            
-            if (oldConfig !== newConfigStr) {
-                console.log('[FF Group Positioner] Configuration changed!');
-                console.log('[FF Group Positioner] Old config:', JSON.parse(oldConfig));
-                console.log('[FF Group Positioner] New config:', config);
-                
-                // Validate group name whenever config changes
-                validateGroupName(config.group_name);
-            } else {
-                console.log('[FF Group Positioner] No config changes detected');
-            }
-        } else {
-            console.warn('[FF Group Positioner] Server returned status:', response.status);
+    scheduleRun(ms = 500) {
+        if (this.runScheduledForMs && ms < this.runScheduledForMs) {
+            this.clearScheduledRun();
         }
-    } catch (error) {
-        console.warn('[FF Group Positioner] Could not load group positioner config:', error);
-    }
-}
-
-// Validate group name and check for duplicates
-async function validateGroupName(groupName) {
-    const app = getApp();
-    if (!app || !app.graph || !app.graph._groups) {
-        await logToComfyUI('group_validation', {
-            group_name: groupName,
-            available_groups: [],
-            matching_groups: [],
-            error: 'Cannot validate group - app or graph not available'
-        });
-        return false;
-    }
-    
-    const groups = app.graph._groups;
-    const matchingGroups = groups.filter(g => g.title === groupName);
-    
-    await logToComfyUI('group_validation', {
-        group_name: groupName,
-        available_groups: groups.map(g => g.title),
-        matching_groups: matchingGroups.map(g => g.title)
-    });
-    
-    if (matchingGroups.length === 0) {
-        return false;
-    } else if (matchingGroups.length > 1) {
-        return true;
-    } else {
-        return true;
-    }
-}
-
-// Find a group by name
-function findGroupByName(groupName) {
-    const app = getApp();
-    if (!app || !app.graph || !app.graph._groups) {
-        console.log('[FF Group Positioner] App or graph not available');
-        return null;
-    }
-    
-    const groups = app.graph._groups;
-    const matchingGroups = groups.filter(g => g.title === groupName);
-    
-    if (matchingGroups.length === 0) {
-        console.log(`[FF Group Positioner] Group '${groupName}' not found`);
-        return null;
-    } else if (matchingGroups.length > 1) {
-        console.warn(`[FF Group Positioner] Multiple groups with name '${groupName}' found, using first one`);
-    }
-    
-    const group = matchingGroups[0];
-    console.log(`[FF Group Positioner] Found group:`, group);
-    return group;
-}
-
-// Position group under cursor
-async function positionGroupUnderCursor(groupName) {
-    // First validate the group exists
-    const isValid = await validateGroupName(groupName);
-    if (!isValid) {
-        console.warn(`[FF Group Positioner] Group '${groupName}' not found or invalid`);
-        return;
-    }
-    
-    const app = getApp();
-    if (!app) {
-        console.warn('[FF Group Positioner] ComfyUI app not available');
-        return;
-    }
-    
-    const group = findGroupByName(groupName);
-    if (!group) {
-        console.warn(`[FF Group Positioner] Group '${groupName}' not found`);
-        return;
-    }
-    
-    // Get current mouse position from canvas
-    const canvas = app.canvas;
-    if (!canvas || !canvas.mouse) {
-        console.warn('[FF Group Positioner] Mouse position not available');
-        console.log('[FF Group Positioner] Canvas:', canvas);
-        console.log('[FF Group Positioner] Canvas mouse:', canvas?.mouse);
-        return;
-    }
-    
-    const mousePos = canvas.mouse;
-    
-    // Log positioning action to ComfyUI console
-    await logToComfyUI('positioning', {
-        group_name: groupName,
-        mouse_pos: mousePos,
-        group_pos: group.pos
-    });
-    
-    // Calculate group dimensions
-    const groupWidth = group.size[0];
-    const groupHeight = group.size[1];
-    
-    // Get canvas offset and zoom for proper positioning
-    const canvasOffset = canvas.offset || [0, 0];
-    const canvasScale = canvas.scale || 1;
-    
-    console.log('[FF Group Positioner] Canvas offset:', canvasOffset);
-    console.log('[FF Group Positioner] Canvas scale:', canvasScale);
-    
-    // Calculate adjusted mouse position (accounting for canvas transform)
-    const adjustedMouseX = (mousePos[0] - canvasOffset[0]) / canvasScale;
-    const adjustedMouseY = (mousePos[1] - canvasOffset[1]) / canvasScale;
-    
-    console.log('[FF Group Positioner] Adjusted mouse position:', [adjustedMouseX, adjustedMouseY]);
-    
-    // Calculate the offset to move the group
-    const currentGroupX = group.pos[0];
-    const currentGroupY = group.pos[1];
-    const newGroupX = adjustedMouseX - groupWidth / 2;
-    const newGroupY = adjustedMouseY - groupHeight / 2;
-    
-    const offsetX = newGroupX - currentGroupX;
-    const offsetY = newGroupY - currentGroupY;
-    
-    console.log('[FF Group Positioner] Group offset calculated:', { offsetX, offsetY });
-    
-    // Update group position
-    group.pos = [newGroupX, newGroupY];
-    
-    // Move all nodes within the group by the same offset
-    if (app.graph._nodes) {
-        let movedNodes = 0;
-        for (const node of app.graph._nodes) {
-            if (node.group_id === group.id) {
-                const oldPos = node.pos;
-                node.pos = [oldPos[0] + offsetX, oldPos[1] + offsetY];
-                movedNodes++;
-                console.log(`[FF Group Positioner] Moved node ${node.title || node.id} from [${oldPos[0]}, ${oldPos[1]}] to [${node.pos[0]}, ${node.pos[1]}]`);
-            }
+        if (!this.runScheduledForMs) {
+            this.runScheduledForMs = ms;
+            this.runScheduleTimeout = setTimeout(() => {
+                this.runScheduleAnimation = requestAnimationFrame(() => this.run());
+            }, ms);
         }
-        console.log(`[FF Group Positioner] Moved ${movedNodes} nodes with the group`);
     }
     
-    // Trigger graph change to update the UI
-    app.graph.change();
+    clearScheduledRun() {
+        this.runScheduleTimeout && clearTimeout(this.runScheduleTimeout);
+        this.runScheduleAnimation && cancelAnimationFrame(this.runScheduleAnimation);
+        this.runScheduleTimeout = null;
+        this.runScheduleAnimation = null;
+        this.runScheduledForMs = null;
+    }
     
-    console.log(`[FF Group Positioner] Successfully positioned group '${groupName}' and its contents at (${newGroupX.toFixed(2)}, ${newGroupY.toFixed(2)})`);
-}
-
-// Handle keyboard shortcuts
-async function handleKeyDown(event) {
-    try {
-        // Always reload config before checking shortcut to ensure we have latest settings
-        await loadConfig();
-        
-        if (!config.enabled) {
-            console.log('[FF Group Positioner] Feature disabled, ignoring key press');
+    async run() {
+        if (!this.runScheduledForMs) {
             return;
         }
         
-        // Check if the pressed key matches our shortcut
-        let keyPressed = event.key;
-        let keyCode = event.code;
-        
-        // Handle modifier keys
-        if (event.ctrlKey) keyPressed = 'Ctrl+' + keyPressed;
-        if (event.altKey) keyPressed = 'Alt+' + keyPressed;
-        if (event.shiftKey) keyPressed = 'Shift+' + keyPressed;
-        if (event.metaKey) keyPressed = 'Meta+' + keyPressed;
-        
-        console.log('[FF Group Positioner] Key pressed:', keyPressed, 'Key code:', keyCode, 'Expected:', config.shortcut_key);
-        
-        // Check for exact match first
-        if (keyPressed === config.shortcut_key) {
-            console.log('[FF Group Positioner] Shortcut matched! Triggering positioning...');
-            event.preventDefault();
-            
-            // Log shortcut press to ComfyUI console
-            await logToComfyUI('shortcut_pressed', {
-                shortcut: config.shortcut_key,
-                group_name: config.group_name
-            });
-            
-            await positionGroupUnderCursor(config.group_name);
-            return;
+        const configChanged = await loadConfig();
+        if (configChanged && this.onConfigChange) {
+            this.onConfigChange();
         }
         
-        // Fallback: Check if it's a function key and handle different formats
-        if (config.shortcut_key.startsWith('F') && keyCode) {
-            const functionKeyNumber = config.shortcut_key.substring(1);
-            const expectedKeyCode = `F${functionKeyNumber}`;
-            
-            if (keyCode === expectedKeyCode) {
-                console.log('[FF Group Positioner] Function key matched via keyCode! Triggering positioning...');
-                event.preventDefault();
-                
-                // Log shortcut press to ComfyUI console
-                await logToComfyUI('shortcut_pressed', {
-                    shortcut: config.shortcut_key,
-                    group_name: config.group_name
-                });
-                
-                await positionGroupUnderCursor(config.group_name);
-                return;
-            }
-        }
-    } catch (error) {
-        console.error('[FF Group Positioner] Error in keyboard handler:', error);
+        this.clearScheduledRun();
+        this.scheduleRun();
     }
 }
 
 // Initialize the extension
 async function init() {
-    console.log('[FF Group Positioner] Initializing...');
+    log('Initializing...', 'INFO');
+    
+    // Load initial configuration
     await loadConfig();
     
-    // Add keyboard event listener
-    document.addEventListener('keydown', handleKeyDown);
+    // Setup keyboard listener
+    setupKeyboardListener();
     
-    // Validate group exists
-    validateGroupName(config.group_name);
+    // Setup graph monitoring (like rgthree-comfy)
+    setupGraphMonitoring(async (eventType) => {
+        log(`Graph event: ${eventType}`, 'DEBUG');
+        configService.scheduleRun(100); // Quick reload on graph changes
+    });
     
-    // Set up periodic config checking (every 1 second for faster response)
-    setInterval(async () => {
-        await loadConfig();
-    }, 1000);
+    // Setup configuration service (like rgthree-comfy's service pattern)
+    const configService = new ConfigService();
+    configService.setOnConfigChange(async () => {
+        const config = getConfig();
+        log(`Configuration updated: ${config.group_name} -> ${config.shortcut_key}`, 'INFO');
+        
+        // Validate group name whenever config changes
+        const validation = validateGroupName(config.group_name);
+        await logToComfyUI('group_validation', {
+            group_name: config.group_name,
+            available_groups: validation.available_groups,
+            matching_groups: validation.matching_groups,
+            error: validation.error
+        });
+    });
     
-    console.log('[FF Group Positioner] Extension loaded');
-    console.log(`[FF Group Positioner] Configuration: ${config.group_name} -> ${config.shortcut_key} (${config.enabled ? 'enabled' : 'disabled'}) ${config.debug_mode ? '[DEBUG ON]' : ''}`);
+    // Start periodic config checking (like rgthree-comfy's scheduling)
+    configService.scheduleRun(1000);
     
-    // Add global function for manual testing
-    window.testFlipFlopGroupPositioner = function() {
-        console.log('[FF Group Positioner] Manual test function called');
-        positionGroupUnderCursor(config.group_name);
+    // Add global functions for manual testing
+    window.testFlipFlopGroupPositioner = async function() {
+        log('Manual test function called', 'INFO');
+        const config = getConfig();
+        await positionGroupUnderCursor(config.group_name);
     };
     
-    // Add global function to force config reload
     window.reloadFlipFlopConfig = async function() {
-        console.log('[FF Group Positioner] Manual config reload called');
+        log('Manual config reload called', 'INFO');
         await loadConfig();
-        console.log('[FF Group Positioner] Current config after manual reload:', config);
+        const config = getConfig();
+        log(`Current config after manual reload: ${JSON.stringify(config)}`, 'INFO');
     };
     
-    console.log('[FF Group Positioner] Manual test function available: testFlipFlopGroupPositioner()');
-    console.log('[FF Group Positioner] Manual config reload available: reloadFlipFlopConfig()');
+    log('Extension loaded successfully', 'INFO');
+    const config = getConfig();
+    log(`Configuration: ${config.group_name} -> ${config.shortcut_key} (${config.enabled ? 'enabled' : 'disabled'}) ${config.debug_mode ? '[DEBUG ON]' : ''}`, 'INFO');
+    log('Manual test function available: testFlipFlopGroupPositioner()', 'INFO');
+    log('Manual config reload available: reloadFlipFlopConfig()', 'INFO');
 }
 
-// Wait for ComfyUI to be ready
-function waitForComfyUI() {
-    const app = getApp();
-    if (app && app.graph) {
-        console.log('[FF Group Positioner] ComfyUI detected, initializing...');
-        init();
-    } else {
-        console.log('[FF Group Positioner] Waiting for ComfyUI...');
-        setTimeout(waitForComfyUI, 1000);
-    }
-}
-
-// Start waiting for ComfyUI
-console.log('[FF Group Positioner] Starting...');
-waitForComfyUI();
+// Start the extension
+log('Starting...', 'INFO');
+waitForComfyUI(init);
 

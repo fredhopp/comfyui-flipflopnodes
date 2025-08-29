@@ -4,31 +4,7 @@
     <title>FlipFlop Group Positioner</title>
 </head>
 <body>
-    <!-- This file is used to load the JavaScript extension -->
-    <script>
-        // Simple script injection approach
-        console.log('[FF Group Positioner] HTML file loaded');
-        
-        // Wait for page to be ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', loadExtension);
-        } else {
-            loadExtension();
-        }
-        
-        function loadExtension() {
-            console.log('[FF Group Positioner] Loading extension...');
-            
-            // Create script element
-            const script = document.createElement('script');
-            script.type = 'module';
-            script.src = 'js/group_positioner.js';
-            script.onload = () => console.log('[FF Group Positioner] Script loaded successfully');
-            script.onerror = (e) => console.error('[FF Group Positioner] Script load error:', e);
-            
-            // Add to head
-            document.head.appendChild(script);
-        }
-    </script>
+    <!-- This file is used to load the FlipFlop Group Positioner extension -->
+    <script type="module" src="js/group_positioner.js"></script>
 </body>
 </html>
