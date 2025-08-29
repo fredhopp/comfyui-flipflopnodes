@@ -142,13 +142,45 @@ export function positionGroupUnderCursor(groupName) {
     
     const mousePos = canvas.mouse;
     console.log('[FF Group Positioner] Raw mouse position:', mousePos);
+    console.log('[FF Group Positioner] Mouse position type:', typeof mousePos);
+    console.log('[FF Group Positioner] Mouse position length:', mousePos.length);
+    console.log('[FF Group Positioner] Mouse position values:', [mousePos[0], mousePos[1]]);
     
-    // NEW APPROACH: Use ComfyUI's native coordinate system directly
-    // Instead of converting coordinates, use the mouse position as-is
-    // ComfyUI's canvas.mouse should already be in the correct coordinate system
-    let graphPos = [...mousePos]; // Use mouse position directly
+    // Try to get mouse position from the last mouse event instead
+    let graphPos;
     
-    console.log('[FF Group Positioner] Using mouse position directly as graph coordinates:', graphPos);
+    // Method 1: Try to get from canvas's last mouse event
+    if (canvas.last_mouse_position) {
+        graphPos = [...canvas.last_mouse_position];
+        console.log('[FF Group Positioner] Using canvas.last_mouse_position:', graphPos);
+    }
+    // Method 2: Try to get from canvas's mouse property (if it's in graph coordinates)
+    else if (mousePos && mousePos.length === 2) {
+        graphPos = [...mousePos];
+        console.log('[FF Group Positioner] Using canvas.mouse directly:', graphPos);
+    }
+    // Method 3: Try to get from canvas's transform
+    else if (canvas.transform) {
+        // Get the canvas element and calculate position
+        const canvasElement = canvas.canvas;
+        if (canvasElement) {
+            const rect = canvasElement.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            graphPos = [centerX, centerY]; // Use center as fallback
+            console.log('[FF Group Positioner] Using canvas center as fallback:', graphPos);
+        } else {
+            graphPos = [0, 0];
+            console.log('[FF Group Positioner] No canvas element, using [0,0]');
+        }
+    }
+    // Method 4: Fallback to [0,0]
+    else {
+        graphPos = [0, 0];
+        console.log('[FF Group Positioner] No mouse position available, using [0,0]');
+    }
+    
+    console.log('[FF Group Positioner] Final graph coordinates:', graphPos);
     
     // Calculate group dimensions
     const groupWidth = group.size[0];
