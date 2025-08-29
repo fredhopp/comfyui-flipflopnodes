@@ -1,0 +1,10 @@
+[33m70f5da3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Fix test function to use correct positionGroupAt function - restore working functionality
+[33mdb294aa[m Fix canvas property access - add fallbacks for undefined scale/offset
+[33m00b3f76[m Fix circular JSON errors and import issues - clean up debug logging
+[33m6a40ef8[m Complete overhaul: Enhanced logging system, proper coordinate conversion, and comprehensive documentation
+[33m10f0181[m Fix coordinate conversion using proper ComfyUI/LiteGraph methods from Crystools
+[33m48f6ac7[m Add comprehensive canvas debugging to understand ComfyUI coordinate system
+[33m109340d[m Fix coordinate conversion to use mouse position directly instead of absolute graph coordinates
+[33mb59054f[m Update cache-busting parameter to force latest JavaScript load
+[33m2c5a707[m Add detailed coordinate conversion logging to show actual values
+[33ma782e40[m Add detailed coordinate conversion logging and transform matrix method
