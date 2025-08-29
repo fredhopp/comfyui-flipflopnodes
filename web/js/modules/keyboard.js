@@ -70,9 +70,7 @@ export async function handleKeyDown(event) {
     const config = getConfig();
     if (!config.enabled) return;
     
-    // DEBUG: Log detailed config info
-    log(`DEBUG - Config loaded: ${JSON.stringify(config)}`, 'INFO');
-    log(`DEBUG - Current shortcut key: "${config.shortcut_key}", Pressed: "${event.key}" (${event.code})`, 'INFO');
+
     
     let keyPressed = event.key;
     let keyCode = event.code;

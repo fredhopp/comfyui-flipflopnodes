@@ -20,17 +20,11 @@ export async function logToComfyUI(action, data = {}) {
 
 // Simple console logging with consistent formatting
 export function log(message, level = 'INFO') {
-    // TEMPORARY DEBUG MODE - show all logs
-    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-    const formattedMessage = `[${timestamp}] [FF Group Positioner] ${message}`;
-    
+    // Silent mode - only log errors
     if (level === 'ERROR') {
+        const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+        const formattedMessage = `[${timestamp}] [FF Group Positioner] ${message}`;
         console.error(`%c${formattedMessage}`, 'color: #f44336; font-weight: bold;');
-    } else if (level === 'WARN') {
-        console.warn(`%c${formattedMessage}`, 'color: #ff9800; font-weight: bold;');
-    } else if (level === 'INFO') {
-        console.info(`%c${formattedMessage}`, 'color: #2196f3; font-weight: bold;');
-    } else {
-        console.log(`%c${formattedMessage}`, 'color: #4caf50; font-weight: bold;');
     }
+    // All other levels are silent
 }
