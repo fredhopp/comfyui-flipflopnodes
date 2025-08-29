@@ -119,7 +119,7 @@ export function getGroupNodes(group) {
     return groupNodes;
 }
 
-// Position group under cursor (using ComfyUI's native positioning)
+// Position group under cursor (using proper coordinate conversion)
 export function positionGroupUnderCursor(groupName) {
     const app = getApp();
     if (!app) {
@@ -146,38 +146,35 @@ export function positionGroupUnderCursor(groupName) {
     console.log('[FF Group Positioner] Mouse position length:', mousePos.length);
     console.log('[FF Group Positioner] Mouse position values:', [mousePos[0], mousePos[1]]);
     
-    // Try to get mouse position from the last mouse event instead
+    // PROPER COORDINATE CONVERSION: Account for canvas scale and offset
     let graphPos;
     
-    // Method 1: Try to get from canvas's last mouse event
-    if (canvas.last_mouse_position) {
-        graphPos = [...canvas.last_mouse_position];
-        console.log('[FF Group Positioner] Using canvas.last_mouse_position:', graphPos);
+    // Method 1: Use ComfyUI's built-in coordinate conversion (if available)
+    if (canvas.screenToCanvas && typeof canvas.screenToCanvas === 'function') {
+        graphPos = canvas.screenToCanvas(mousePos[0], mousePos[1]);
+        console.log('[FF Group Positioner] Using canvas.screenToCanvas method:', graphPos);
     }
-    // Method 2: Try to get from canvas's mouse property (if it's in graph coordinates)
-    else if (mousePos && mousePos.length === 2) {
-        graphPos = [...mousePos];
-        console.log('[FF Group Positioner] Using canvas.mouse directly:', graphPos);
+    // Method 2: Use display system's coordinate conversion
+    else if (canvas.ds && canvas.ds.screenToCanvas && typeof canvas.ds.screenToCanvas === 'function') {
+        graphPos = canvas.ds.screenToCanvas(mousePos[0], mousePos[1]);
+        console.log('[FF Group Positioner] Using canvas.ds.screenToCanvas method:', graphPos);
     }
-    // Method 3: Try to get from canvas's transform
-    else if (canvas.transform) {
-        // Get the canvas element and calculate position
-        const canvasElement = canvas.canvas;
-        if (canvasElement) {
-            const rect = canvasElement.getBoundingClientRect();
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            graphPos = [centerX, centerY]; // Use center as fallback
-            console.log('[FF Group Positioner] Using canvas center as fallback:', graphPos);
-        } else {
-            graphPos = [0, 0];
-            console.log('[FF Group Positioner] No canvas element, using [0,0]');
-        }
-    }
-    // Method 4: Fallback to [0,0]
+    // Method 3: Manual conversion using canvas transform properties
     else {
-        graphPos = [0, 0];
-        console.log('[FF Group Positioner] No mouse position available, using [0,0]');
+        // Get canvas transform properties (scale and offset)
+        const scale = canvas.scale || 1;
+        const offset = canvas.offset || [0, 0];
+        
+        console.log('[FF Group Positioner] Canvas transform properties:', { scale, offset });
+        
+        // Convert screen coordinates to graph coordinates
+        // Formula: (screen_pos - offset) / scale
+        graphPos = [
+            (mousePos[0] - offset[0]) / scale,
+            (mousePos[1] - offset[1]) / scale
+        ];
+        
+        console.log('[FF Group Positioner] Using manual coordinate conversion:', graphPos);
     }
     
     console.log('[FF Group Positioner] Final graph coordinates:', graphPos);
