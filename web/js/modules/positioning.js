@@ -230,6 +230,18 @@ export function positionGroupUnderCursor(groupName) {
                         transform: transform,
                         calculated: graphPos
                     });
+                    
+                    // Also log the actual values directly
+                    console.log('[FF Group Positioner] Matrix conversion values:', {
+                        mousePos: [mousePos[0], mousePos[1]],
+                        rect: { left: rect.left, top: rect.top },
+                        relative: [relativeX, relativeY],
+                        transform: {
+                            a: transform.a, b: transform.b, c: transform.c,
+                            d: transform.d, e: transform.e, f: transform.f
+                        },
+                        calculated: [graphPos[0], graphPos[1]]
+                    });
                 }
             }
         }
