@@ -1,8 +1,41 @@
 // Group Positioner Extension for ComfyUI
 // This extension allows positioning a group under the cursor when a shortcut key is pressed
 
-// Function to log to ComfyUI console via Python
+// Function to log to ComfyUI console and show notifications
 async function logToComfyUI(action, data = {}) {
+    const app = getApp();
+    
+    // Create log message
+    let message = '';
+    switch (action) {
+        case 'shortcut_pressed':
+            message = `Shortcut pressed: ${data.shortcut} for group: ${data.group_name}`;
+            break;
+        case 'group_validation':
+            if (data.error) {
+                message = `Group validation error: ${data.error}`;
+            } else {
+                const available = data.available_groups.join(', ');
+                const matching = data.matching_groups.join(', ');
+                message = `Group validation: '${data.group_name}' - Available: [${available}] - Matching: [${matching}]`;
+            }
+            break;
+        case 'positioning':
+            message = `Positioning group: '${data.group_name}' at mouse [${data.mouse_pos}] from group [${data.group_pos}]`;
+            break;
+        default:
+            message = data.message || 'Unknown action';
+    }
+    
+    // Log to browser console (always visible)
+    console.log(`%c[FF Group Positioner] ${message}`, 'color: #4CAF50; font-weight: bold;');
+    
+    // Show notification in ComfyUI (if app is available)
+    if (app && app.ui && app.ui.notifications) {
+        app.ui.notifications.show(`[FF Group Positioner] ${message}`, 3000);
+    }
+    
+    // Also try to log to ComfyUI console via Python (only works when graph runs)
     try {
         await fetch('/flipflop/trigger_log', {
             method: 'POST',
@@ -15,7 +48,7 @@ async function logToComfyUI(action, data = {}) {
             })
         });
     } catch (error) {
-        console.error('[FF Group Positioner] Failed to log to ComfyUI console:', error);
+        // Silently fail - this is expected when graph isn't running
     }
 }
 
