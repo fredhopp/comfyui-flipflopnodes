@@ -1,205 +1,170 @@
 // Group Positioning Module
-// Adapts rgthree-comfy's positioning logic for cursor-based positioning
+// Handles group positioning with proper coordinate conversion
 
 import { getApp } from './app.js';
+import { getConfig } from './config.js';
 
-// Get all nodes within a group (investigate ComfyUI's group-node association)
-export function getGroupNodes(group) {
+// Validate group name and return available groups
+export function validateGroupName(groupName) {
     const app = getApp();
-    if (!app || !app.graph || !app.graph._nodes) return [];
-    
-    console.log(`[FF Group Positioner] Looking for nodes in group '${group.title}' (id: ${group.id})`);
-    console.log(`[FF Group Positioner] Total nodes in graph: ${app.graph._nodes.length}`);
-    
-    // Debug: Log all nodes and their group associations (only in debug mode)
-    const config = getConfig();
-    if (config && config.debug_mode) {
-        app.graph._nodes.forEach((node, index) => {
-            console.log(`[FF Group Positioner] Node ${index}: ${node.title || node.id} - group_id: ${node.group_id}, group: ${node.group}`);
-        });
+    if (!app || !app.graph || !app.graph._groups) {
+        return {
+            error: 'Cannot access ComfyUI graph',
+            available_groups: [],
+            matching_groups: []
+        };
     }
     
-    // Try different ways to find nodes in the group
-    let groupNodes = [];
-    
-    // Method 1: Check group_id property
-    const nodesByGroupId = app.graph._nodes.filter(node => node.group_id === group.id);
-    console.log(`[FF Group Positioner] Method 1 (group_id): Found ${nodesByGroupId.length} nodes`);
-    
-    // Method 2: Check group property
-    const nodesByGroup = app.graph._nodes.filter(node => node.group === group.id);
-    console.log(`[FF Group Positioner] Method 2 (group): Found ${nodesByGroup.length} nodes`);
-    
-    // Method 3: Check if node is within group bounds (IMPROVED - this is working!)
-    const nodesInBounds = app.graph._nodes.filter(node => {
-        if (!node.pos || !group.pos || !group.size) return false;
-        
-        const nodeX = node.pos[0];
-        const nodeY = node.pos[1];
-        const groupX = group.pos[0];
-        const groupY = group.pos[1];
-        const groupWidth = group.size[0];
-        const groupHeight = group.size[1];
-        
-        // Check if node is within group bounds (with tolerance)
-        const tolerance = 30; // pixels - increased for better detection
-        
-        // Calculate node bounds (assuming typical node size)
-        const nodeWidth = 200; // typical node width
-        const nodeHeight = 100; // typical node height
-        
-        // Check if node overlaps with group bounds
-        const nodeLeft = nodeX;
-        const nodeRight = nodeX + nodeWidth;
-        const nodeTop = nodeY;
-        const nodeBottom = nodeY + nodeHeight;
-        
-        const groupLeft = groupX - tolerance;
-        const groupRight = groupX + groupWidth + tolerance;
-        const groupTop = groupY - tolerance;
-        const groupBottom = groupY + groupHeight + tolerance;
-        
-        // Check for overlap
-        const overlaps = !(nodeRight < groupLeft || 
-                          nodeLeft > groupRight || 
-                          nodeBottom < groupTop || 
-                          nodeTop > groupBottom);
-        
-        if (overlaps) {
-            console.log(`[FF Group Positioner] Node ${node.title || node.id} overlaps with group bounds`);
-            console.log(`  Node: [${nodeLeft}, ${nodeTop}] to [${nodeRight}, ${nodeBottom}]`);
-            console.log(`  Group: [${groupLeft}, ${groupTop}] to [${groupRight}, ${groupBottom}]`);
-        }
-        
-        return overlaps;
-    });
-    console.log(`[FF Group Positioner] Method 3 (bounds): Found ${nodesInBounds.length} nodes`);
-    
-    // Method 4: Check for any group-related properties
-    const nodesByAnyGroup = app.graph._nodes.filter(node => {
-        // Check all possible group-related properties
-        return node.group_id === group.id || 
-               node.group === group.id ||
-               node.groupId === group.id ||
-               node.group_id === group.title ||
-               node.group === group.title;
-    });
-    console.log(`[FF Group Positioner] Method 4 (any group property): Found ${nodesByAnyGroup.length} nodes`);
-    
-    // Use the method that found the most nodes, or combine them
-    const allMethods = [
-        { name: 'group_id', nodes: nodesByGroupId },
-        { name: 'group', nodes: nodesByGroup },
-        { name: 'bounds', nodes: nodesInBounds },
-        { name: 'any_group', nodes: nodesByAnyGroup }
-    ];
-    
-    // Find the method with the most nodes
-    const bestMethod = allMethods.reduce((best, current) => 
-        current.nodes.length > best.nodes.length ? current : best
+    const available_groups = app.graph._groups.map(g => g.title);
+    const matching_groups = available_groups.filter(name => 
+        name.toLowerCase().includes(groupName.toLowerCase())
     );
     
-    if (bestMethod.nodes.length > 0) {
-        groupNodes = bestMethod.nodes;
-        console.log(`[FF Group Positioner] Using Method '${bestMethod.name}' - found ${groupNodes.length} nodes`);
-        
-        // Log group bounds for debugging
-        console.log(`[FF Group Positioner] Group bounds: [${group.pos[0]}, ${group.pos[1]}] size [${group.size[0]}, ${group.size[1]}]`);
-    } else {
-        console.log(`[FF Group Positioner] No nodes found using any method`);
-    }
+    const error = available_groups.length === 0 ? 'No groups found in graph' :
+                  matching_groups.length === 0 ? `Group '${groupName}' not found` : null;
     
-    // Log the nodes we found
-    if (groupNodes.length > 0) {
-        groupNodes.forEach((node, index) => {
-            console.log(`[FF Group Positioner] - Node ${index}: ${node.title || node.id} at [${node.pos[0]}, ${node.pos[1]}]`);
-        });
-    }
-    
-    return groupNodes;
+    return { error, available_groups, matching_groups };
 }
 
-// Position group under cursor (using proper coordinate conversion)
-export function positionGroupUnderCursor(groupName) {
+// Find all nodes within a group using multiple detection methods
+export function findNodesInGroup(groupName, groupId) {
     const app = getApp();
-    if (!app) {
-        console.warn('[FF Group Positioner] ComfyUI app not available');
+    if (!app || !app.graph || !app.graph._nodes) {
+        console.error('[FF Group Positioner] Cannot access ComfyUI graph');
+        return [];
+    }
+    
+    console.log(`[FF Group Positioner] Looking for nodes in group '${groupName}' (id: ${groupId})`);
+    console.log(`[FF Group Positioner] Total nodes in graph: ${app.graph._nodes.length}`);
+    
+    const nodes = [];
+    
+    // Method 1: Check if nodes have group_id property
+    const method1Nodes = app.graph._nodes.filter(node => 
+        node.group_id === groupId
+    );
+    console.log(`[FF Group Positioner] Method 1 (group_id): Found ${method1Nodes.length} nodes`);
+    nodes.push(...method1Nodes);
+    
+    // Method 2: Check if nodes have group property
+    const method2Nodes = app.graph._nodes.filter(node => 
+        node.group === groupId
+    );
+    console.log(`[FF Group Positioner] Method 2 (group): Found ${method2Nodes.length} nodes`);
+    nodes.push(...method2Nodes);
+    
+    // Method 3: Check if nodes overlap with group bounds (fallback)
+    const group = app.graph._groups.find(g => g.id === groupId);
+    if (group && group.pos && group.size) {
+        const overlappingNodes = app.graph._nodes.filter(node => {
+            if (!node.pos) return false;
+            
+            const nodeBounds = {
+                x: node.pos[0],
+                y: node.pos[1],
+                width: node.size ? node.size[0] : 200,
+                height: node.size ? node.size[1] : 100
+            };
+            
+            const groupBounds = {
+                x: group.pos[0],
+                y: group.pos[1],
+                width: group.size[0],
+                height: group.size[1]
+            };
+            
+            // Check if node overlaps with group bounds
+            const overlaps = !(nodeBounds.x > groupBounds.x + groupBounds.width ||
+                             nodeBounds.x + nodeBounds.width < groupBounds.x ||
+                             nodeBounds.y > groupBounds.y + groupBounds.height ||
+                             nodeBounds.y + nodeBounds.height < groupBounds.y);
+            
+            if (overlaps) {
+                console.log(`[FF Group Positioner] Node ${node.title || node.type} (${node.comfyClass || 'unknown'}) overlaps with group bounds`);
+                console.log(`  Node: [${nodeBounds.x}, ${nodeBounds.y}] to [${nodeBounds.x + nodeBounds.width}, ${nodeBounds.y + nodeBounds.height}]`);
+                console.log(`  Group: [${groupBounds.x}, ${groupBounds.y}] to [${groupBounds.x + groupBounds.width}, ${groupBounds.y + groupBounds.height}]`);
+            }
+            
+            return overlaps;
+        });
+        
+        console.log(`[FF Group Positioner] Method 3 (bounds): Found ${overlappingNodes.length} nodes`);
+        nodes.push(...overlappingNodes);
+    }
+    
+    // Method 4: Check for any group-related properties
+    const method4Nodes = app.graph._nodes.filter(node => {
+        const hasGroupProperty = node.group_id !== undefined || 
+                                node.group !== undefined || 
+                                node.groupName !== undefined ||
+                                node.group_name !== undefined;
+        return hasGroupProperty;
+    });
+    console.log(`[FF Group Positioner] Method 4 (any group property): Found ${method4Nodes.length} nodes`);
+    
+    // Remove duplicates and return unique nodes
+    const uniqueNodes = [];
+    const seenIds = new Set();
+    
+    for (const node of nodes) {
+        if (!seenIds.has(node.id)) {
+            seenIds.add(node.id);
+            uniqueNodes.push(node);
+        }
+    }
+    
+    console.log(`[FF Group Positioner] Found ${uniqueNodes.length} unique nodes in group`);
+    return uniqueNodes;
+}
+
+// Position a group and its contents at the specified coordinates
+export async function positionGroupAt(groupName, groupId, mousePos) {
+    const app = getApp();
+    if (!app || !app.canvas) {
+        console.error('[FF Group Positioner] Cannot access ComfyUI app or canvas');
         return false;
     }
     
-    const group = findGroupByName(groupName);
-    if (!group) {
-        console.warn(`[FF Group Positioner] Group '${groupName}' not found`);
-        return false;
-    }
-    
-    // Get current mouse position from canvas
     const canvas = app.canvas;
-    if (!canvas || !canvas.mouse) {
-        console.warn('[FF Group Positioner] Mouse position not available');
-        return false;
-    }
     
-    const mousePos = canvas.mouse;
-    console.log('[FF Group Positioner] Raw mouse position:', mousePos);
-    console.log('[FF Group Positioner] Mouse position type:', typeof mousePos);
-    console.log('[FF Group Positioner] Mouse position length:', mousePos.length);
-    console.log('[FF Group Positioner] Mouse position values:', [mousePos[0], mousePos[1]]);
+    console.log(`[FF Group Positioner] Raw mouse position: [${mousePos[0]}, ${mousePos[1]}]`);
     
-    // PROPER COORDINATE CONVERSION: Use mouse position directly
+    // PROPER COORDINATE CONVERSION: Use ComfyUI's built-in methods
     let graphPos;
     
-    // DEBUG: Log all available canvas properties
-    console.log('[FF Group Positioner] Canvas debug info:', {
-        canvas: canvas,
-        canvasType: typeof canvas,
-        canvasKeys: Object.keys(canvas),
-        mouse: canvas.mouse,
-        mouseType: typeof canvas.mouse,
-        scale: canvas.scale,
-        offset: canvas.offset,
-        ds: canvas.ds,
-        dsKeys: canvas.ds ? Object.keys(canvas.ds) : null,
-        transform: canvas.transform,
-        last_mouse_position: canvas.last_mouse_position,
-        canvasElement: canvas.canvas,
-        canvasElementRect: canvas.canvas ? canvas.canvas.getBoundingClientRect() : null
-    });
-    
-    // Method 1: Use mouse position directly (simplest approach)
-    graphPos = [...mousePos];
-    console.log('[FF Group Positioner] Using direct mouse position:', graphPos);
-    
-    // Method 2: Use ComfyUI's built-in coordinate conversion (if available)
-    if (canvas.screenToCanvas && typeof canvas.screenToCanvas === 'function') {
-        const convertedPos = canvas.screenToCanvas(mousePos[0], mousePos[1]);
-        console.log('[FF Group Positioner] Using canvas.screenToCanvas method:', convertedPos);
-        // Only use if it's different from mouse position
-        if (convertedPos[0] !== mousePos[0] || convertedPos[1] !== mousePos[1]) {
-            graphPos = convertedPos;
+    // Method 1: Use ComfyUI's convertEventToCanvasOffset method (PROPER WAY)
+    if (canvas.convertEventToCanvasOffset && typeof canvas.convertEventToCanvasOffset === 'function') {
+        // Create a mock event object with clientX and clientY
+        const mockEvent = {
+            clientX: mousePos[0],
+            clientY: mousePos[1]
+        };
+        
+        try {
+            graphPos = canvas.convertEventToCanvasOffset(mockEvent);
+            console.log(`[FF Group Positioner] Using canvas.convertEventToCanvasOffset method: [${graphPos[0]}, ${graphPos[1]}]`);
+        } catch (error) {
+            console.error(`[FF Group Positioner] Error using convertEventToCanvasOffset: ${error}`);
+            graphPos = [...mousePos];
         }
     }
-    // Method 3: Use display system's coordinate conversion
-    else if (canvas.ds && canvas.ds.screenToCanvas && typeof canvas.ds.screenToCanvas === 'function') {
-        const convertedPos = canvas.ds.screenToCanvas(mousePos[0], mousePos[1]);
-        console.log('[FF Group Positioner] Using canvas.ds.screenToCanvas method:', convertedPos);
-        // Only use if it's different from mouse position
-        if (convertedPos[0] !== mousePos[0] || convertedPos[1] !== mousePos[1]) {
-            graphPos = convertedPos;
+    // Method 2: Use DragAndScale's convertOffsetToCanvas method
+    else if (canvas.ds && canvas.ds.convertOffsetToCanvas && typeof canvas.ds.convertOffsetToCanvas === 'function') {
+        try {
+            graphPos = canvas.ds.convertOffsetToCanvas(mousePos[0], mousePos[1]);
+            console.log(`[FF Group Positioner] Using canvas.ds.convertOffsetToCanvas method: [${graphPos[0]}, ${graphPos[1]}]`);
+        } catch (error) {
+            console.error(`[FF Group Positioner] Error using ds.convertOffsetToCanvas: ${error}`);
+            graphPos = [...mousePos];
         }
     }
-    // Method 4: Manual conversion using canvas transform properties
+    // Method 3: Use manual conversion as fallback
     else {
         // Get canvas transform properties (scale and offset)
         const scale = canvas.scale || 1;
         const offset = canvas.offset || [0, 0];
         
-        console.log('[FF Group Positioner] Canvas transform properties:', { 
-            scale: scale, 
-            offset: offset,
-            offsetX: offset[0],
-            offsetY: offset[1]
-        });
+        console.log(`[FF Group Positioner] Canvas transform properties: scale=${scale}, offset=${JSON.stringify(offset)}`);
         
         // Convert screen coordinates to graph coordinates
         // Formula: (screen_pos - offset) / scale
@@ -208,148 +173,84 @@ export function positionGroupUnderCursor(groupName) {
             (mousePos[1] - offset[1]) / scale
         ];
         
-        console.log('[FF Group Positioner] Using manual coordinate conversion:', convertedPos);
-        console.log('[FF Group Positioner] Conversion details:', {
-            mousePos: mousePos,
-            offset: offset,
-            scale: scale,
-            calculated: convertedPos
-        });
-        
-        // Log the actual conversion details values
-        console.log('[FF Group Positioner] Manual conversion details expanded:', {
-            mousePos: [mousePos[0], mousePos[1]],
-            offset: [offset[0], offset[1]],
-            scale: scale,
-            calculated: [convertedPos[0], convertedPos[1]]
-        });
-        
-        // Only use if it's significantly different from mouse position
-        const diffX = Math.abs(convertedPos[0] - mousePos[0]);
-        const diffY = Math.abs(convertedPos[1] - mousePos[1]);
-        if (diffX > 10 || diffY > 10) {
-            graphPos = convertedPos;
-        }
+        console.log(`[FF Group Positioner] Using manual coordinate conversion: [${convertedPos[0]}, ${convertedPos[1]}]`);
+        graphPos = convertedPos;
     }
     
-    console.log('[FF Group Positioner] Final graph coordinates:', graphPos);
+    console.log(`[FF Group Positioner] Final graph coordinates: [${graphPos[0]}, ${graphPos[1]}]`);
     
-    // Calculate group dimensions
-    const groupWidth = group.size[0];
-    const groupHeight = group.size[1];
-    
-    console.log('[FF Group Positioner] Group dimensions:', { width: groupWidth, height: groupHeight });
-    
-    // Calculate the new position (center group under cursor)
-    const currentGroupX = group.pos[0];
-    const currentGroupY = group.pos[1];
-    const newGroupX = graphPos[0] - groupWidth / 2;
-    const newGroupY = graphPos[1] - groupHeight / 2;
-    
-    const offsetX = newGroupX - currentGroupX;
-    const offsetY = newGroupY - currentGroupY;
-    
-    console.log('[FF Group Positioner] Position calculation:', {
-        current: [currentGroupX, currentGroupY],
-        new: [newGroupX, newGroupY],
-        offset: [offsetX, offsetY],
-        mousePos: mousePos,
-        graphPos: graphPos
-    });
-    
-    // CRITICAL FIX: Find nodes BEFORE moving the group
-    console.log('[FF Group Positioner] Finding nodes BEFORE moving group...');
-    const groupNodes = getGroupNodes(group);
-    console.log(`[FF Group Positioner] Found ${groupNodes.length} nodes to move with group`);
-    
-    // Check for drawing order properties (debugging)
-    console.log('[FF Group Positioner] Checking for drawing order properties...');
-    console.log('[FF Group Positioner] Group properties:', Object.keys(group));
-    if (groupNodes.length > 0) {
-        console.log('[FF Group Positioner] First node properties:', Object.keys(groupNodes[0]));
+    // Find the group
+    const group = app.graph._groups.find(g => g.id === groupId);
+    if (!group) {
+        console.error(`[FF Group Positioner] Group with ID ${groupId} not found`);
+        return false;
     }
     
-    // DRAWING ORDER FIX: Move group FIRST to ensure it stays behind nodes
-    console.log('[FF Group Positioner] Moving group FIRST to maintain proper layering...');
-    group.pos = [newGroupX, newGroupY];
-    console.log(`[FF Group Positioner] Moved group to [${newGroupX}, ${newGroupY}]`);
+    // Calculate group dimensions and position
+    const groupSize = group.size || [200, 100];
+    const groupDimensions = {
+        width: groupSize[0],
+        height: groupSize[1]
+    };
     
-    // Then move all nodes within the group by the same offset
-    let movedNodes = 0;
-    for (const node of groupNodes) {
+    console.log(`[FF Group Positioner] Group dimensions: ${JSON.stringify(groupDimensions)}`);
+    
+    // Calculate new position (center the group on the mouse)
+    const newGroupPos = [
+        graphPos[0] - groupDimensions.width / 2,
+        graphPos[1] - groupDimensions.height / 2
+    ];
+    
+    console.log(`[FF Group Positioner] Position calculation: ${JSON.stringify({
+        mousePos: graphPos,
+        groupSize: groupDimensions,
+        newGroupPos: newGroupPos
+    })}`);
+    
+    // Find nodes in the group BEFORE moving
+    console.log(`[FF Group Positioner] Finding nodes BEFORE moving group...`);
+    const nodesInGroup = findNodesInGroup(groupName, groupId);
+    
+    // Move the group
+    group.pos = newGroupPos;
+    
+    // Move all nodes in the group by the same offset
+    const oldGroupPos = group.pos;
+    const offsetX = newGroupPos[0] - oldGroupPos[0];
+    const offsetY = newGroupPos[1] - oldGroupPos[1];
+    
+    console.log(`[FF Group Positioner] Moving ${nodesInGroup.length} nodes by offset [${offsetX}, ${offsetY}]`);
+    
+    for (const node of nodesInGroup) {
         if (node.pos) {
-            const oldPos = [...node.pos]; // Create a copy
-            node.pos = [oldPos[0] + offsetX, oldPos[1] + offsetY];
-            movedNodes++;
-            console.log(`[FF Group Positioner] Moved node ${node.title || node.id} from [${oldPos[0]}, ${oldPos[1]}] to [${node.pos[0]}, ${node.pos[1]}]`);
+            node.pos[0] += offsetX;
+            node.pos[1] += offsetY;
+            console.log(`[FF Group Positioner] Moved node ${node.title || node.id} to [${node.pos[0]}, ${node.pos[1]}]`);
         }
     }
     
-    console.log(`[FF Group Positioner] Moved ${movedNodes} nodes with the group`);
+    // Update the canvas
+    canvas.setDirty();
     
-    // Trigger graph change to update the UI
-    app.graph.change();
-    
-    console.log(`[FF Group Positioner] Successfully positioned group '${groupName}' and its contents at (${newGroupX.toFixed(2)}, ${newGroupY.toFixed(2)})`);
-    
+    console.log(`[FF Group Positioner] Group '${groupName}' positioned at [${newGroupPos[0]}, ${newGroupPos[1]}]`);
     return true;
 }
 
-// Find a group by name (adapted from rgthree-comfy's group handling)
-export function findGroupByName(groupName) {
+// Legacy function for backward compatibility
+export function positionGroupUnderCursor(groupName) {
     const app = getApp();
-    if (!app || !app.graph || !app.graph._groups) {
-        console.log('[FF Group Positioner] App or graph not available');
-        return null;
+    if (!app || !app.canvas) {
+        console.error('[FF Group Positioner] Cannot access ComfyUI app or canvas');
+        return false;
     }
     
-    const groups = app.graph._groups;
-    const matchingGroups = groups.filter(g => g.title === groupName);
-    
-    if (matchingGroups.length === 0) {
-        console.log(`[FF Group Positioner] Group '${groupName}' not found`);
-        console.log('[FF Group Positioner] Available groups:', groups.map(g => g.title));
-        return null;
-    } else if (matchingGroups.length > 1) {
-        console.warn(`[FF Group Positioner] Multiple groups with name '${groupName}' found, using first one`);
+    const group = app.graph._groups.find(g => g.title === groupName);
+    if (!group) {
+        console.error(`[FF Group Positioner] Group '${groupName}' not found`);
+        return false;
     }
     
-    const group = matchingGroups[0];
-    console.log(`[FF Group Positioner] Found group:`, group);
-    return group;
-}
-
-// Validate group name and check for duplicates (like rgthree-comfy's validation)
-export function validateGroupName(groupName) {
-    const app = getApp();
-    if (!app || !app.graph || !app.graph._groups) {
-        return {
-            valid: false,
-            available_groups: [],
-            matching_groups: [],
-            error: 'Cannot validate group - app or graph not available'
-        };
-    }
-    
-    const groups = app.graph._groups;
-    const matchingGroups = groups.filter(g => g.title === groupName);
-    
-    return {
-        valid: matchingGroups.length > 0,
-        available_groups: groups.map(g => g.title),
-        matching_groups: matchingGroups.map(g => g.title),
-        error: matchingGroups.length === 0 ? `No group found with name '${groupName}'` : null
-    };
-}
-
-// Helper function to get config (imported from config.js)
-function getConfig() {
-    try {
-        // Try to import dynamically to avoid circular dependencies
-        const { getConfig } = require('./config.js');
-        return getConfig();
-    } catch (e) {
-        // Fallback if import fails
-        return null;
-    }
+    // Use the current mouse position from the canvas
+    const mousePos = app.canvas.mouse || [0, 0];
+    return positionGroupAt(groupName, group.id, mousePos);
 }

@@ -3,7 +3,7 @@
 
 import { getApp } from './app.js';
 import { getConfig, loadConfig } from './config.js';
-import { positionGroupUnderCursor, validateGroupName } from './positioning.js';
+import { positionGroupAt, validateGroupName } from './positioning.js';
 import { logToComfyUI, log } from './logging.js';
 
 let lastWidgetValues = {};
@@ -90,7 +90,16 @@ export async function handleKeyDown(event) {
             mouse_position: globalMousePosition
         });
         
-        await positionGroupUnderCursor(config.group_name);
+        // Find the group and position it
+        const app = getApp();
+        if (app && app.graph && app.graph._groups) {
+            const group = app.graph._groups.find(g => g.title === config.group_name);
+            if (group) {
+                await positionGroupAt(config.group_name, group.id, globalMousePosition);
+            } else {
+                log(`Group '${config.group_name}' not found`, 'WARN');
+            }
+        }
         return;
     }
     
@@ -110,7 +119,16 @@ export async function handleKeyDown(event) {
                 mouse_position: globalMousePosition
             });
             
-            await positionGroupUnderCursor(config.group_name);
+            // Find the group and position it
+            const app = getApp();
+            if (app && app.graph && app.graph._groups) {
+                const group = app.graph._groups.find(g => g.title === config.group_name);
+                if (group) {
+                    await positionGroupAt(config.group_name, group.id, globalMousePosition);
+                } else {
+                    log(`Group '${config.group_name}' not found`, 'WARN');
+                }
+            }
             return;
         }
     }
