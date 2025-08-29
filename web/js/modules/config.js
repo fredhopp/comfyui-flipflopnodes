@@ -5,10 +5,10 @@ import { getApp } from './app.js';
 
 // Default configuration
 const DEFAULT_CONFIG = {
-    group_name: "MOVABLE",
+    group_name: "👜👜👜",
     shortcut_key: "F8",
     enabled: true,
-    debug_mode: true
+    debug_mode: false  // Always false in production
 };
 
 // Current configuration
@@ -50,7 +50,8 @@ export function getConfigFromGraph() {
                 newConfig.enabled = widget.value !== undefined ? widget.value : DEFAULT_CONFIG.enabled;
                 break;
             case 'debug_mode':
-                newConfig.debug_mode = widget.value !== undefined ? widget.value : DEFAULT_CONFIG.debug_mode;
+                // Debug mode is always false in production - widget no longer exists
+                newConfig.debug_mode = false;
                 break;
         }
     }

@@ -9,12 +9,12 @@ class FlipFlop_Group_Positioner:
         return {
             "required": {
                 "group_name": ("STRING", {
-                    "default": "👜👜👜",
+                    "default": "MOVABLE",
                     "multiline": False,
                     "placeholder": "Enter the group name to position"
                 }),
                 "shortcut_key": ("STRING", {
-                    "default": "F8",
+                    "default": "5",
                     "multiline": False,
                     "placeholder": "Keyboard shortcut (e.g., F8, Ctrl+G)"
                 }),

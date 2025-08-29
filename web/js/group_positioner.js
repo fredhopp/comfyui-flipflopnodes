@@ -95,7 +95,7 @@ async function init() {
     
     log('Extension loaded successfully', 'INFO');
     const config = getConfig();
-    log(`Configuration: ${config.group_name} -> ${config.shortcut_key} (${config.enabled ? 'enabled' : 'disabled'}) ${config.debug_mode ? '[DEBUG ON]' : ''}`, 'INFO');
+            log(`Configuration: ${config.group_name} -> ${config.shortcut_key} (${config.enabled ? 'enabled' : 'disabled'})`, 'INFO');
     log('Manual test function available: testFlipFlopGroupPositioner()', 'INFO');
     log('Manual config reload available: reloadFlipFlopConfig()', 'INFO');
 }
