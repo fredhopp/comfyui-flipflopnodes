@@ -25,7 +25,7 @@ function checkWidgetChanges() {
     if (!app || !app.graph || !app.graph._nodes) return false;
     
     const positionerNodes = app.graph._nodes.filter(node => 
-        node.comfyClass === 'FlipFlop_Group_Positioner'
+        node.comfyClass === 'FF Group Positioner'
     );
     
     if (positionerNodes.length === 0) return false;

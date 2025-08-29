@@ -27,7 +27,7 @@ export function getConfigFromGraph() {
     
     // Find our Group Positioner node
     const positionerNodes = app.graph._nodes.filter(node => 
-        node.comfyClass === 'FlipFlop_Group_Positioner'
+        node.comfyClass === 'FF Group Positioner'
     );
     
     console.log('[FF Group Positioner] Found positioner nodes:', positionerNodes.length);
