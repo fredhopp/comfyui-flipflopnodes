@@ -9,7 +9,7 @@ class FlipFlop_Group_Positioner:
         return {
             "required": {
                 "group_name": ("STRING", {
-                    "default": "MOVABLE",
+                    "default": "👜👜👜",
                     "multiline": False,
                     "placeholder": "Enter the group name to position"
                 }),
