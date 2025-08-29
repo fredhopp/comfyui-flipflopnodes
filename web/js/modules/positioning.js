@@ -47,8 +47,25 @@ export function positionGroupUnderCursor(groupName) {
     console.log('[FF Group Positioner] Raw mouse position:', mousePos);
     
     // Convert screen coordinates to graph coordinates
-    // This is the key fix - we need to use canvas methods to convert coordinates
-    const graphPos = canvas.screenToCanvas(mousePos[0], mousePos[1]);
+    // Use the correct canvas methods available in ComfyUI
+    let graphPos;
+    if (canvas.screenToCanvas) {
+        // If screenToCanvas method exists, use it
+        graphPos = canvas.screenToCanvas(mousePos[0], mousePos[1]);
+    } else if (canvas.ds && canvas.ds.screenToCanvas) {
+        // Try the display system's screenToCanvas method
+        graphPos = canvas.ds.screenToCanvas(mousePos[0], mousePos[1]);
+    } else {
+        // Fallback: manual coordinate conversion using canvas transform
+        const offset = canvas.offset || [0, 0];
+        const scale = canvas.scale || 1;
+        graphPos = [
+            (mousePos[0] - offset[0]) / scale,
+            (mousePos[1] - offset[1]) / scale
+        ];
+        console.log('[FF Group Positioner] Using fallback coordinate conversion');
+    }
+    
     console.log('[FF Group Positioner] Converted to graph coordinates:', graphPos);
     
     // Calculate group dimensions
