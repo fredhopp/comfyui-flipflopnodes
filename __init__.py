@@ -2,8 +2,8 @@
 # This file registers the custom nodes with ComfyUI
 
 from .nodes.group_positioner import FlipFlop_Group_Positioner
-from .nodes.nodes_IO import FlipFlop_Text_Input, FlipFlop_Text_Output
-from .nodes.nodes_text import FlipFlop_Text_Processor
+from .nodes.nodes_IO import FlipFlop_Load_Image_with_Metadata
+from .nodes.nodes_text import FlipFlop_Text
 
 # Import the server setup function
 from .server import setup as server_setup
@@ -11,17 +11,15 @@ from .server import setup as server_setup
 # Node class mappings
 NODE_CLASS_MAPPINGS = {
     "FlipFlop_Group_Positioner": FlipFlop_Group_Positioner,
-    "FlipFlop_Text_Input": FlipFlop_Text_Input,
-    "FlipFlop_Text_Output": FlipFlop_Text_Output,
-    "FlipFlop_Text_Processor": FlipFlop_Text_Processor,
+    "FlipFlop_Load_Image_with_Metadata": FlipFlop_Load_Image_with_Metadata,
+    "FlipFlop_Text": FlipFlop_Text,
 }
 
 # Node display names
 NODE_DISPLAY_NAME_MAPPINGS = {
     "FlipFlop_Group_Positioner": "Group Positioner",
-    "FlipFlop_Text_Input": "Text Input",
-    "FlipFlop_Text_Output": "Text Output",
-    "FlipFlop_Text_Processor": "Text Processor",
+    "FlipFlop_Load_Image_with_Metadata": "Load Image with Metadata",
+    "FlipFlop_Text": "Text Processor",
 }
 
 # Web directory for frontend files
