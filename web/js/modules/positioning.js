@@ -119,7 +119,7 @@ export function getGroupNodes(group) {
     return groupNodes;
 }
 
-// Position group under cursor (fixed coordinate calculation)
+// Position group under cursor (using ComfyUI's native positioning)
 export function positionGroupUnderCursor(groupName) {
     const app = getApp();
     if (!app) {
@@ -143,37 +143,12 @@ export function positionGroupUnderCursor(groupName) {
     const mousePos = canvas.mouse;
     console.log('[FF Group Positioner] Raw mouse position:', mousePos);
     
-    // SIMPLIFIED: Use ComfyUI's native coordinate system
-    let graphPos;
+    // NEW APPROACH: Use ComfyUI's native coordinate system directly
+    // Instead of converting coordinates, use the mouse position as-is
+    // ComfyUI's canvas.mouse should already be in the correct coordinate system
+    let graphPos = [...mousePos]; // Use mouse position directly
     
-    // Method 1: Try screenToCanvas method (most reliable)
-    if (canvas.screenToCanvas && typeof canvas.screenToCanvas === 'function') {
-        graphPos = canvas.screenToCanvas(mousePos[0], mousePos[1]);
-        console.log('[FF Group Positioner] Using canvas.screenToCanvas method');
-    } 
-    // Method 2: Try display system's screenToCanvas
-    else if (canvas.ds && canvas.ds.screenToCanvas && typeof canvas.ds.screenToCanvas === 'function') {
-        graphPos = canvas.ds.screenToCanvas(mousePos[0], mousePos[1]);
-        console.log('[FF Group Positioner] Using canvas.ds.screenToCanvas method');
-    }
-    // Method 3: Simple manual conversion (reliable fallback)
-    else {
-        // Get canvas properties
-        const offset = canvas.offset || [0, 0];
-        const scale = canvas.scale || 1;
-        
-        console.log('[FF Group Positioner] Canvas properties:', { offset, scale });
-        
-        // Simple conversion: mouse position minus offset, divided by scale
-        graphPos = [
-            (mousePos[0] - offset[0]) / scale,
-            (mousePos[1] - offset[1]) / scale
-        ];
-        
-        console.log('[FF Group Positioner] Using simple manual coordinate conversion');
-    }
-    
-    console.log('[FF Group Positioner] Converted to graph coordinates:', graphPos);
+    console.log('[FF Group Positioner] Using mouse position directly as graph coordinates:', graphPos);
     
     // Calculate group dimensions
     const groupWidth = group.size[0];
