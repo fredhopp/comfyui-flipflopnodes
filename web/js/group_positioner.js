@@ -10,76 +10,63 @@ import { setupKeyboardListener } from './modules/keyboard.js';
 // Service-based configuration monitoring (like rgthree-comfy)
 class ConfigService {
     constructor() {
-        this.msThreshold = 400;
-        this.msLastCheck = 0;
         this.runScheduledForMs = null;
-        this.runScheduleTimeout = null;
-        this.runScheduleAnimation = null;
         this.onConfigChange = null;
+        this.lastConfig = null;
+        this.isRunning = false;
     }
-    
+
     setOnConfigChange(callback) {
         this.onConfigChange = callback;
     }
-    
-    scheduleRun(ms = 500) {
-        if (this.runScheduledForMs && ms < this.runScheduledForMs) {
-            this.clearScheduledRun();
+
+    scheduleRun(delayMs = 5000) { // Increased default delay from 1000 to 5000ms
+        if (this.runScheduledForMs) {
+            return; // Already scheduled
         }
-        if (!this.runScheduledForMs) {
-            this.runScheduledForMs = ms;
-            this.runScheduleTimeout = setTimeout(() => {
-                this.runScheduleAnimation = requestAnimationFrame(() => this.run());
-            }, ms);
-        }
+        this.runScheduledForMs = Date.now() + delayMs;
+        setTimeout(() => this.run(), delayMs);
     }
-    
+
     clearScheduledRun() {
-        this.runScheduleTimeout && clearTimeout(this.runScheduleTimeout);
-        this.runScheduleAnimation && cancelAnimationFrame(this.runScheduleAnimation);
-        this.runScheduleTimeout = null;
-        this.runScheduleAnimation = null;
         this.runScheduledForMs = null;
     }
-    
+
     async run() {
-        if (!this.runScheduledForMs) {
+        if (!this.runScheduledForMs || this.isRunning) {
             return;
         }
         
-        const configChanged = await loadConfig();
-        if (configChanged && this.onConfigChange) {
-            this.onConfigChange();
+        this.isRunning = true;
+        try {
+            const configChanged = await loadConfig();
+            if (configChanged && this.onConfigChange) {
+                this.onConfigChange();
+            }
+        } catch (error) {
+            console.warn('[FF Group Positioner] Config service error:', error);
+        } finally {
+            this.isRunning = false;
+            this.clearScheduledRun();
+            this.scheduleRun(5000); // Schedule next run with 5 second interval
         }
-        
-        this.clearScheduledRun();
-        this.scheduleRun();
     }
 }
 
 // Initialize the extension
 async function init() {
     log('Initializing...', 'INFO');
-    
-    // Load initial configuration
     await loadConfig();
-    
-    // Setup keyboard listener
     setupKeyboardListener();
-    
-    // Setup graph monitoring (like rgthree-comfy)
     setupGraphMonitoring(async (eventType) => {
         log(`Graph event: ${eventType}`, 'DEBUG');
-        configService.scheduleRun(100); // Quick reload on graph changes
+        configService.scheduleRun(1000); // Quick reload on graph changes
     });
     
-    // Setup configuration service (like rgthree-comfy's service pattern)
     const configService = new ConfigService();
     configService.setOnConfigChange(async () => {
         const config = getConfig();
         log(`Configuration updated: ${config.group_name} -> ${config.shortcut_key}`, 'INFO');
-        
-        // Validate group name whenever config changes
         const validation = validateGroupName(config.group_name);
         await logToComfyUI('group_validation', {
             group_name: config.group_name,
@@ -89,10 +76,10 @@ async function init() {
         });
     });
     
-    // Start periodic config checking (like rgthree-comfy's scheduling)
-    configService.scheduleRun(1000);
+    // Start with a longer interval to reduce excessive loading
+    configService.scheduleRun(5000); // 5 seconds instead of 1 second
     
-    // Add global functions for manual testing
+    // Global functions for manual testing
     window.testFlipFlopGroupPositioner = async function() {
         log('Manual test function called', 'INFO');
         const config = getConfig();
@@ -113,7 +100,6 @@ async function init() {
     log('Manual config reload available: reloadFlipFlopConfig()', 'INFO');
 }
 
-// Start the extension
 log('Starting...', 'INFO');
 waitForComfyUI(init);
 

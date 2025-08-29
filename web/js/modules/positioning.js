@@ -11,10 +11,13 @@ export function getGroupNodes(group) {
     console.log(`[FF Group Positioner] Looking for nodes in group '${group.title}' (id: ${group.id})`);
     console.log(`[FF Group Positioner] Total nodes in graph: ${app.graph._nodes.length}`);
     
-    // Debug: Log all nodes and their group associations
-    app.graph._nodes.forEach((node, index) => {
-        console.log(`[FF Group Positioner] Node ${index}: ${node.title || node.id} - group_id: ${node.group_id}, group: ${node.group}`);
-    });
+    // Debug: Log all nodes and their group associations (only in debug mode)
+    const config = getConfig();
+    if (config && config.debug_mode) {
+        app.graph._nodes.forEach((node, index) => {
+            console.log(`[FF Group Positioner] Node ${index}: ${node.title || node.id} - group_id: ${node.group_id}, group: ${node.group}`);
+        });
+    }
     
     // Try different ways to find nodes in the group
     let groupNodes = [];
@@ -27,7 +30,7 @@ export function getGroupNodes(group) {
     const nodesByGroup = app.graph._nodes.filter(node => node.group === group.id);
     console.log(`[FF Group Positioner] Method 2 (group): Found ${nodesByGroup.length} nodes`);
     
-    // Method 3: Check if node is within group bounds
+    // Method 3: Check if node is within group bounds (more precise)
     const nodesInBounds = app.graph._nodes.filter(node => {
         if (!node.pos || !group.pos || !group.size) return false;
         
@@ -38,8 +41,8 @@ export function getGroupNodes(group) {
         const groupWidth = group.size[0];
         const groupHeight = group.size[1];
         
-        // Check if node is within group bounds (with some tolerance)
-        const tolerance = 50; // pixels
+        // Check if node is within group bounds (with smaller tolerance for precision)
+        const tolerance = 20; // pixels - reduced from 50 for better precision
         return nodeX >= groupX - tolerance && 
                nodeX <= groupX + groupWidth + tolerance &&
                nodeY >= groupY - tolerance && 
@@ -47,24 +50,43 @@ export function getGroupNodes(group) {
     });
     console.log(`[FF Group Positioner] Method 3 (bounds): Found ${nodesInBounds.length} nodes`);
     
+    // Method 4: Check for any group-related properties
+    const nodesByAnyGroup = app.graph._nodes.filter(node => {
+        // Check all possible group-related properties
+        return node.group_id === group.id || 
+               node.group === group.id ||
+               node.groupId === group.id ||
+               node.group_id === group.title ||
+               node.group === group.title;
+    });
+    console.log(`[FF Group Positioner] Method 4 (any group property): Found ${nodesByAnyGroup.length} nodes`);
+    
     // Use the method that found the most nodes, or combine them
-    if (nodesByGroupId.length > 0) {
-        groupNodes = nodesByGroupId;
-        console.log(`[FF Group Positioner] Using Method 1 (group_id) - found ${groupNodes.length} nodes`);
-    } else if (nodesByGroup.length > 0) {
-        groupNodes = nodesByGroup;
-        console.log(`[FF Group Positioner] Using Method 2 (group) - found ${groupNodes.length} nodes`);
-    } else if (nodesInBounds.length > 0) {
-        groupNodes = nodesInBounds;
-        console.log(`[FF Group Positioner] Using Method 3 (bounds) - found ${groupNodes.length} nodes`);
+    const allMethods = [
+        { name: 'group_id', nodes: nodesByGroupId },
+        { name: 'group', nodes: nodesByGroup },
+        { name: 'bounds', nodes: nodesInBounds },
+        { name: 'any_group', nodes: nodesByAnyGroup }
+    ];
+    
+    // Find the method with the most nodes
+    const bestMethod = allMethods.reduce((best, current) => 
+        current.nodes.length > best.nodes.length ? current : best
+    );
+    
+    if (bestMethod.nodes.length > 0) {
+        groupNodes = bestMethod.nodes;
+        console.log(`[FF Group Positioner] Using Method '${bestMethod.name}' - found ${groupNodes.length} nodes`);
     } else {
         console.log(`[FF Group Positioner] No nodes found using any method`);
     }
     
     // Log the nodes we found
-    groupNodes.forEach((node, index) => {
-        console.log(`[FF Group Positioner] - Node ${index}: ${node.title || node.id} at [${node.pos[0]}, ${node.pos[1]}]`);
-    });
+    if (groupNodes.length > 0) {
+        groupNodes.forEach((node, index) => {
+            console.log(`[FF Group Positioner] - Node ${index}: ${node.title || node.id} at [${node.pos[0]}, ${node.pos[1]}]`);
+        });
+    }
     
     return groupNodes;
 }
@@ -144,10 +166,12 @@ export function positionGroupUnderCursor(groupName) {
     let movedNodes = 0;
     
     for (const node of groupNodes) {
-        const oldPos = node.pos;
-        node.pos = [oldPos[0] + offsetX, oldPos[1] + offsetY];
-        movedNodes++;
-        console.log(`[FF Group Positioner] Moved node ${node.title || node.id} from [${oldPos[0]}, ${oldPos[1]}] to [${node.pos[0]}, ${node.pos[1]}]`);
+        if (node.pos) {
+            const oldPos = [...node.pos]; // Create a copy
+            node.pos = [oldPos[0] + offsetX, oldPos[1] + offsetY];
+            movedNodes++;
+            console.log(`[FF Group Positioner] Moved node ${node.title || node.id} from [${oldPos[0]}, ${oldPos[1]}] to [${node.pos[0]}, ${node.pos[1]}]`);
+        }
     }
     
     console.log(`[FF Group Positioner] Moved ${movedNodes} nodes with the group`);
@@ -205,4 +229,16 @@ export function validateGroupName(groupName) {
         matching_groups: matchingGroups.map(g => g.title),
         error: matchingGroups.length === 0 ? `No group found with name '${groupName}'` : null
     };
+}
+
+// Helper function to get config (imported from config.js)
+function getConfig() {
+    try {
+        // Try to import dynamically to avoid circular dependencies
+        const { getConfig } = require('./config.js');
+        return getConfig();
+    } catch (e) {
+        // Fallback if import fails
+        return null;
+    }
 }
