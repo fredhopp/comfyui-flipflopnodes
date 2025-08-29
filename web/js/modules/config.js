@@ -22,20 +22,30 @@ export function getConfigFromGraph() {
         return null;
     }
     
+    // DEBUG: Log all node classes to see what's available
+    console.log('[FF Group Positioner] All nodes in graph:', app.graph._nodes.map(n => n.comfyClass));
+    
     // Find our Group Positioner node
     const positionerNodes = app.graph._nodes.filter(node => 
         node.comfyClass === 'FlipFlop_Group_Positioner'
     );
     
+    console.log('[FF Group Positioner] Found positioner nodes:', positionerNodes.length);
+    
     if (positionerNodes.length === 0) {
+        console.warn('[FF Group Positioner] No FlipFlop_Group_Positioner nodes found in graph');
         return null;
     }
     
     // Use the first node found (or could iterate through all)
     const node = positionerNodes[0];
     
+    console.log('[FF Group Positioner] Found node:', node);
+    
     // Extract widget values directly from the node
     const widgets = node.widgets || [];
+    console.log('[FF Group Positioner] Widgets found:', widgets.map(w => ({ name: w.name, value: w.value })));
+    
     const newConfig = { ...DEFAULT_CONFIG };
     
     for (const widget of widgets) {
