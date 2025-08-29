@@ -56,19 +56,15 @@ export function getConfigFromGraph() {
         }
     }
     
-    console.log('[FF Group Positioner] Config from graph:', newConfig);
     return newConfig;
 }
 
 // Load configuration from the graph (replaces file-based loading)
 export async function loadConfig() {
     try {
-        console.log('[FF Group Positioner] Loading config from graph...');
-        
         const newConfig = getConfigFromGraph();
         
         if (!newConfig) {
-            console.log('[FF Group Positioner] No config found in graph, using defaults');
             return false;
         }
         
@@ -76,17 +72,7 @@ export async function loadConfig() {
         config = { ...config, ...newConfig };
         const newConfigStr = JSON.stringify(config);
         
-        console.log('[FF Group Positioner] Current config after merge:', config);
-        
-        if (oldConfig !== newConfigStr) {
-            console.log('[FF Group Positioner] Configuration changed!');
-            console.log('[FF Group Positioner] Old config:', JSON.parse(oldConfig));
-            console.log('[FF Group Positioner] New config:', config);
-            return true; // Config changed
-        } else {
-            console.log('[FF Group Positioner] No config changes detected');
-            return false; // No changes
-        }
+        return oldConfig !== newConfigStr; // Return true if config changed
     } catch (error) {
         console.warn('[FF Group Positioner] Could not load config from graph:', error);
         return false;

@@ -14,10 +14,7 @@ function updateGlobalMousePosition(event) {
     // For mouse events, use clientX/clientY
     if (event.clientX !== undefined && event.clientY !== undefined) {
         globalMousePosition = [event.clientX, event.clientY];
-        // Debug: log mouse position updates (but only occasionally to avoid spam)
-        if (Math.random() < 0.01) { // Only log 1% of mouse moves
-            log(`Mouse position updated: [${globalMousePosition[0]}, ${globalMousePosition[1]}]`, 'DEBUG');
-        }
+        // Track mouse position silently
     }
     // For keyboard events, we'll use the last known mouse position
     // which should be updated by mouse events
@@ -42,7 +39,6 @@ function checkWidgetChanges() {
         const currentValue = widget.value;
         
         if (lastWidgetValues[key] !== currentValue) {
-            console.log(`[FF Group Positioner] Widget '${widget.name}' changed from '${lastWidgetValues[key]}' to '${currentValue}'`);
             lastWidgetValues[key] = currentValue;
             changed = true;
         }
@@ -83,38 +79,30 @@ export async function handleKeyDown(event) {
     if (event.shiftKey) keyPressed = 'Shift+' + keyPressed;
     if (event.metaKey) keyPressed = 'Meta+' + keyPressed;
     
-    log(`Key pressed: ${keyPressed}, Key code: ${keyCode}, Expected: ${config.shortcut_key}`, 'DEBUG');
-    
     // Check if the pressed key matches our shortcut
     if (keyPressed === config.shortcut_key || keyCode === config.shortcut_key) {
-        log('Shortcut matched! Triggering positioning...', 'INFO');
         event.preventDefault();
         
-        // Get current mouse position if globalMousePosition is not set
+        // Get current mouse position
         let currentMousePos = globalMousePosition;
         if (currentMousePos[0] === undefined || currentMousePos[1] === undefined) {
-            // Fallback: try to get mouse position from a different source
+            // Fallback: try to get mouse position from canvas
             const app = getApp();
             if (app && app.canvas) {
-                // Try to get mouse position from canvas
                 const canvas = app.canvas;
                 if (canvas.mouse && canvas.mouse[0] !== undefined && canvas.mouse[1] !== undefined) {
                     currentMousePos = canvas.mouse;
-                    log(`Using canvas mouse position: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'DEBUG');
                 } else {
                     // Last resort: use center of viewport
                     currentMousePos = [window.innerWidth / 2, window.innerHeight / 2];
-                    log(`Using viewport center as fallback: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'WARN');
                 }
             } else {
                 // Last resort: use center of viewport
                 currentMousePos = [window.innerWidth / 2, window.innerHeight / 2];
-                log(`Using viewport center as fallback: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'WARN');
             }
         }
         
-        // Log the mouse position we're using
-        log(`Using mouse position: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'DEBUG');
+        // Use the determined mouse position
         
         await logToComfyUI('shortcut_pressed', {
             shortcut: config.shortcut_key,
@@ -139,34 +127,26 @@ export async function handleKeyDown(event) {
     if (keyCode.startsWith('F') && keyCode.length > 1) {
         const functionKey = keyCode.substring(1); // Remove 'F' prefix
         if (functionKey === config.shortcut_key) {
-            log('Function key matched via keyCode! Triggering positioning...', 'INFO');
             event.preventDefault();
             
-            // Get current mouse position if globalMousePosition is not set
+            // Get current mouse position
             let currentMousePos = globalMousePosition;
             if (currentMousePos[0] === undefined || currentMousePos[1] === undefined) {
-                // Fallback: try to get mouse position from a different source
+                // Fallback: try to get mouse position from canvas
                 const app = getApp();
                 if (app && app.canvas) {
-                    // Try to get mouse position from canvas
                     const canvas = app.canvas;
                     if (canvas.mouse && canvas.mouse[0] !== undefined && canvas.mouse[1] !== undefined) {
                         currentMousePos = canvas.mouse;
-                        log(`Using canvas mouse position: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'DEBUG');
                     } else {
                         // Last resort: use center of viewport
                         currentMousePos = [window.innerWidth / 2, window.innerHeight / 2];
-                        log(`Using viewport center as fallback: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'WARN');
                     }
                 } else {
                     // Last resort: use center of viewport
                     currentMousePos = [window.innerWidth / 2, window.innerHeight / 2];
-                    log(`Using viewport center as fallback: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'WARN');
                 }
             }
-            
-            // Log the mouse position we're using
-            log(`Using mouse position: [${currentMousePos[0]}, ${currentMousePos[1]}]`, 'DEBUG');
             
             await logToComfyUI('shortcut_pressed', {
                 shortcut: config.shortcut_key,
