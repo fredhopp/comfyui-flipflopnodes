@@ -70,6 +70,9 @@ export async function handleKeyDown(event) {
     const config = getConfig();
     if (!config.enabled) return;
     
+    // Temporary debug: log the current shortcut key
+    log(`Current shortcut key: "${config.shortcut_key}", Pressed: "${event.key}" (${event.code})`, 'INFO');
+    
     let keyPressed = event.key;
     let keyCode = event.code;
     
@@ -80,7 +83,13 @@ export async function handleKeyDown(event) {
     if (event.metaKey) keyPressed = 'Meta+' + keyPressed;
     
     // Check if the pressed key matches our shortcut
-    if (keyPressed === config.shortcut_key || keyCode === config.shortcut_key) {
+    const shortcutMatches = 
+        keyPressed === config.shortcut_key || 
+        keyCode === config.shortcut_key ||
+        (keyCode.startsWith('F') && keyCode.substring(1) === config.shortcut_key) ||
+        (config.shortcut_key.startsWith('F') && keyCode === config.shortcut_key);
+    
+    if (shortcutMatches) {
         event.preventDefault();
         
         // Get current mouse position
@@ -102,8 +111,6 @@ export async function handleKeyDown(event) {
             }
         }
         
-        // Use the determined mouse position
-        
         await logToComfyUI('shortcut_pressed', {
             shortcut: config.shortcut_key,
             group_name: config.group_name,
@@ -121,51 +128,6 @@ export async function handleKeyDown(event) {
             }
         }
         return;
-    }
-    
-    // Handle function keys via keyCode (F1, F2, etc.)
-    if (keyCode.startsWith('F') && keyCode.length > 1) {
-        const functionKey = keyCode.substring(1); // Remove 'F' prefix
-        if (functionKey === config.shortcut_key) {
-            event.preventDefault();
-            
-            // Get current mouse position
-            let currentMousePos = globalMousePosition;
-            if (currentMousePos[0] === undefined || currentMousePos[1] === undefined) {
-                // Fallback: try to get mouse position from canvas
-                const app = getApp();
-                if (app && app.canvas) {
-                    const canvas = app.canvas;
-                    if (canvas.mouse && canvas.mouse[0] !== undefined && canvas.mouse[1] !== undefined) {
-                        currentMousePos = canvas.mouse;
-                    } else {
-                        // Last resort: use center of viewport
-                        currentMousePos = [window.innerWidth / 2, window.innerHeight / 2];
-                    }
-                } else {
-                    // Last resort: use center of viewport
-                    currentMousePos = [window.innerWidth / 2, window.innerHeight / 2];
-                }
-            }
-            
-            await logToComfyUI('shortcut_pressed', {
-                shortcut: config.shortcut_key,
-                group_name: config.group_name,
-                mouse_position: currentMousePos
-            });
-            
-            // Find the group and position it
-            const app = getApp();
-            if (app && app.graph && app.graph._groups) {
-                const group = app.graph._groups.find(g => g.title === config.group_name);
-                if (group) {
-                    await positionGroupAt(config.group_name, group.id, currentMousePos);
-                } else {
-                    log(`Group '${config.group_name}' not found`, 'WARN');
-                }
-            }
-            return;
-        }
     }
 }
 
