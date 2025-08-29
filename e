@@ -1,5 +1,0 @@
-[33m26cd5b7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Fix group content movement: improve node detection and fix offset calculation
-[33m8e58dbf[m Fix critical NaN coordinate bug - keyboard events don't have mouse coordinates
-[33m61d01f4[m Add comprehensive project documentation and TODO tracking
-[33mb91bdaf[m Restore working coordinate conversion with proper ComfyUI/LiteGraph methods
-[33m23b8c46[m Revert "Fix coordinate conversion using proper ComfyUI/LiteGraph methods from Crystools"

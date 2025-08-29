@@ -10,16 +10,16 @@ from .server import setup as server_setup
 
 # Node class mappings
 NODE_CLASS_MAPPINGS = {
-    "FlipFlop_Group_Positioner": FlipFlop_Group_Positioner,
-    "FlipFlop_Load_Image_with_Metadata": FlipFlop_Load_Image_with_Metadata,
-    "FlipFlop_Text": FlipFlop_Text,
+    "FF Group Positioner": FlipFlop_Group_Positioner,
+    "FF Load Image with Metadata": FlipFlop_Load_Image_with_Metadata,
+    "FF Text": FlipFlop_Text,
 }
 
 # Node display names
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "FlipFlop_Group_Positioner": "Group Positioner",
-    "FlipFlop_Load_Image_with_Metadata": "Load Image with Metadata",
-    "FlipFlop_Text": "Text Processor",
+    "FF Group Positioner": "FF Group Positioner",
+    "FF Load Image with Metadata": "FF Load Image with Metadata",
+    "FF Text": "FF Text",
 }
 
 # Web directory for frontend files
