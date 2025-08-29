@@ -143,10 +143,10 @@ export function positionGroupUnderCursor(groupName) {
     const mousePos = canvas.mouse;
     console.log('[FF Group Positioner] Raw mouse position:', mousePos);
     
-    // IMPROVED: Better coordinate conversion with multiple fallback methods
+    // SIMPLIFIED: Use ComfyUI's native coordinate system
     let graphPos;
     
-    // Method 1: Try screenToCanvas method
+    // Method 1: Try screenToCanvas method (most reliable)
     if (canvas.screenToCanvas && typeof canvas.screenToCanvas === 'function') {
         graphPos = canvas.screenToCanvas(mousePos[0], mousePos[1]);
         console.log('[FF Group Positioner] Using canvas.screenToCanvas method');
@@ -156,38 +156,21 @@ export function positionGroupUnderCursor(groupName) {
         graphPos = canvas.ds.screenToCanvas(mousePos[0], mousePos[1]);
         console.log('[FF Group Positioner] Using canvas.ds.screenToCanvas method');
     }
-    // Method 3: Try canvas transform matrix
-    else if (canvas.transform && canvas.transform.inverse) {
-        const matrix = canvas.transform.inverse();
-        graphPos = [
-            mousePos[0] * matrix[0] + mousePos[1] * matrix[2] + matrix[4],
-            mousePos[0] * matrix[1] + mousePos[1] * matrix[3] + matrix[5]
-        ];
-        console.log('[FF Group Positioner] Using canvas transform matrix method');
-    }
-    // Method 4: Enhanced manual coordinate conversion
+    // Method 3: Simple manual conversion (reliable fallback)
     else {
-        // Get canvas properties for manual conversion
+        // Get canvas properties
         const offset = canvas.offset || [0, 0];
         const scale = canvas.scale || 1;
-        const canvasWidth = canvas.canvas ? canvas.canvas.width : 1920;
-        const canvasHeight = canvas.canvas ? canvas.canvas.height : 1080;
         
-        console.log('[FF Group Positioner] Canvas properties:', {
-            offset, scale, canvasWidth, canvasHeight
-        });
+        console.log('[FF Group Positioner] Canvas properties:', { offset, scale });
         
-        // Calculate center of canvas
-        const canvasCenterX = canvasWidth / 2;
-        const canvasCenterY = canvasHeight / 2;
-        
-        // Convert screen coordinates to graph coordinates
+        // Simple conversion: mouse position minus offset, divided by scale
         graphPos = [
-            (mousePos[0] - canvasCenterX - offset[0]) / scale,
-            (mousePos[1] - canvasCenterY - offset[1]) / scale
+            (mousePos[0] - offset[0]) / scale,
+            (mousePos[1] - offset[1]) / scale
         ];
         
-        console.log('[FF Group Positioner] Using enhanced manual coordinate conversion');
+        console.log('[FF Group Positioner] Using simple manual coordinate conversion');
     }
     
     console.log('[FF Group Positioner] Converted to graph coordinates:', graphPos);
