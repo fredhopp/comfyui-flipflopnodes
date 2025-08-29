@@ -40,21 +40,8 @@ export async function logToComfyUI(action, data = {}) {
         app.ui.notifications.show(`[FF Group Positioner] ${message}`, 3000);
     }
     
-    // Also try to log to ComfyUI console via Python (only works when graph runs)
-    try {
-        await fetch('/flipflop/trigger_log', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: action,
-                ...data
-            })
-        });
-    } catch (error) {
-        // Silently fail - this is expected when graph isn't running
-    }
+    // Note: Removed server endpoint call since we're using direct graph access now
+    // No more file-based logging needed
 }
 
 // Simple console logging with consistent formatting
