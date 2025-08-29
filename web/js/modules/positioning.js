@@ -30,7 +30,7 @@ export function getGroupNodes(group) {
     const nodesByGroup = app.graph._nodes.filter(node => node.group === group.id);
     console.log(`[FF Group Positioner] Method 2 (group): Found ${nodesByGroup.length} nodes`);
     
-    // Method 3: Check if node is within group bounds (more precise)
+    // Method 3: Check if node is within group bounds (IMPROVED - this is working!)
     const nodesInBounds = app.graph._nodes.filter(node => {
         if (!node.pos || !group.pos || !group.size) return false;
         
@@ -41,12 +41,37 @@ export function getGroupNodes(group) {
         const groupWidth = group.size[0];
         const groupHeight = group.size[1];
         
-        // Check if node is within group bounds (with smaller tolerance for precision)
-        const tolerance = 20; // pixels - reduced from 50 for better precision
-        return nodeX >= groupX - tolerance && 
-               nodeX <= groupX + groupWidth + tolerance &&
-               nodeY >= groupY - tolerance && 
-               nodeY <= groupY + groupHeight + tolerance;
+        // Check if node is within group bounds (with tolerance)
+        const tolerance = 30; // pixels - increased for better detection
+        
+        // Calculate node bounds (assuming typical node size)
+        const nodeWidth = 200; // typical node width
+        const nodeHeight = 100; // typical node height
+        
+        // Check if node overlaps with group bounds
+        const nodeLeft = nodeX;
+        const nodeRight = nodeX + nodeWidth;
+        const nodeTop = nodeY;
+        const nodeBottom = nodeY + nodeHeight;
+        
+        const groupLeft = groupX - tolerance;
+        const groupRight = groupX + groupWidth + tolerance;
+        const groupTop = groupY - tolerance;
+        const groupBottom = groupY + groupHeight + tolerance;
+        
+        // Check for overlap
+        const overlaps = !(nodeRight < groupLeft || 
+                          nodeLeft > groupRight || 
+                          nodeBottom < groupTop || 
+                          nodeTop > groupBottom);
+        
+        if (overlaps) {
+            console.log(`[FF Group Positioner] Node ${node.title || node.id} overlaps with group bounds`);
+            console.log(`  Node: [${nodeLeft}, ${nodeTop}] to [${nodeRight}, ${nodeBottom}]`);
+            console.log(`  Group: [${groupLeft}, ${groupTop}] to [${groupRight}, ${groupBottom}]`);
+        }
+        
+        return overlaps;
     });
     console.log(`[FF Group Positioner] Method 3 (bounds): Found ${nodesInBounds.length} nodes`);
     
@@ -77,6 +102,9 @@ export function getGroupNodes(group) {
     if (bestMethod.nodes.length > 0) {
         groupNodes = bestMethod.nodes;
         console.log(`[FF Group Positioner] Using Method '${bestMethod.name}' - found ${groupNodes.length} nodes`);
+        
+        // Log group bounds for debugging
+        console.log(`[FF Group Positioner] Group bounds: [${group.pos[0]}, ${group.pos[1]}] size [${group.size[0]}, ${group.size[1]}]`);
     } else {
         console.log(`[FF Group Positioner] No nodes found using any method`);
     }
