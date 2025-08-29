@@ -143,24 +143,51 @@ export function positionGroupUnderCursor(groupName) {
     const mousePos = canvas.mouse;
     console.log('[FF Group Positioner] Raw mouse position:', mousePos);
     
-    // Convert screen coordinates to graph coordinates
-    // Use the correct canvas methods available in ComfyUI
+    // IMPROVED: Better coordinate conversion with multiple fallback methods
     let graphPos;
-    if (canvas.screenToCanvas) {
-        // If screenToCanvas method exists, use it
+    
+    // Method 1: Try screenToCanvas method
+    if (canvas.screenToCanvas && typeof canvas.screenToCanvas === 'function') {
         graphPos = canvas.screenToCanvas(mousePos[0], mousePos[1]);
-    } else if (canvas.ds && canvas.ds.screenToCanvas) {
-        // Try the display system's screenToCanvas method
+        console.log('[FF Group Positioner] Using canvas.screenToCanvas method');
+    } 
+    // Method 2: Try display system's screenToCanvas
+    else if (canvas.ds && canvas.ds.screenToCanvas && typeof canvas.ds.screenToCanvas === 'function') {
         graphPos = canvas.ds.screenToCanvas(mousePos[0], mousePos[1]);
-    } else {
-        // Fallback: manual coordinate conversion using canvas transform
+        console.log('[FF Group Positioner] Using canvas.ds.screenToCanvas method');
+    }
+    // Method 3: Try canvas transform matrix
+    else if (canvas.transform && canvas.transform.inverse) {
+        const matrix = canvas.transform.inverse();
+        graphPos = [
+            mousePos[0] * matrix[0] + mousePos[1] * matrix[2] + matrix[4],
+            mousePos[0] * matrix[1] + mousePos[1] * matrix[3] + matrix[5]
+        ];
+        console.log('[FF Group Positioner] Using canvas transform matrix method');
+    }
+    // Method 4: Enhanced manual coordinate conversion
+    else {
+        // Get canvas properties for manual conversion
         const offset = canvas.offset || [0, 0];
         const scale = canvas.scale || 1;
+        const canvasWidth = canvas.canvas ? canvas.canvas.width : 1920;
+        const canvasHeight = canvas.canvas ? canvas.canvas.height : 1080;
+        
+        console.log('[FF Group Positioner] Canvas properties:', {
+            offset, scale, canvasWidth, canvasHeight
+        });
+        
+        // Calculate center of canvas
+        const canvasCenterX = canvasWidth / 2;
+        const canvasCenterY = canvasHeight / 2;
+        
+        // Convert screen coordinates to graph coordinates
         graphPos = [
-            (mousePos[0] - offset[0]) / scale,
-            (mousePos[1] - offset[1]) / scale
+            (mousePos[0] - canvasCenterX - offset[0]) / scale,
+            (mousePos[1] - canvasCenterY - offset[1]) / scale
         ];
-        console.log('[FF Group Positioner] Using fallback coordinate conversion');
+        
+        console.log('[FF Group Positioner] Using enhanced manual coordinate conversion');
     }
     
     console.log('[FF Group Positioner] Converted to graph coordinates:', graphPos);
@@ -183,7 +210,9 @@ export function positionGroupUnderCursor(groupName) {
     console.log('[FF Group Positioner] Position calculation:', {
         current: [currentGroupX, currentGroupY],
         new: [newGroupX, newGroupY],
-        offset: [offsetX, offsetY]
+        offset: [offsetX, offsetY],
+        mousePos: mousePos,
+        graphPos: graphPos
     });
     
     // CRITICAL FIX: Find nodes BEFORE moving the group
