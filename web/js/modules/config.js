@@ -28,7 +28,6 @@ export function getConfigFromGraph() {
     );
     
     if (positionerNodes.length === 0) {
-        console.log('[FF Group Positioner] No Group Positioner node found in graph');
         return null;
     }
     
